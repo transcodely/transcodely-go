@@ -1,0 +1,28 @@
+# buf.gen.yaml — Go codegen for the Transcodely Go SDK.
+# Uses Buf's remote plugins; no local protoc install required.
+version: v2
+
+managed:
+  enabled: true
+  # Don't rewrite the Go import path of protovalidate descriptors — they live
+  # at the canonical BSR-published Go path (buf.build/gen/go/...) which the Go
+  # SDK depends on directly.
+  disable:
+    - module: buf.build/bufbuild/protovalidate
+      file_option: go_package_prefix
+  override:
+    - file_option: go_package_prefix
+      value: github.com/transcodely/transcodely-go/internal/gen
+
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.36.5
+    out: internal/gen
+    opt:
+      - paths=source_relative
+  - remote: buf.build/connectrpc/go:v1.18.1
+    out: internal/gen
+    opt:
+      - paths=source_relative
+
+inputs:
+  - directory: proto

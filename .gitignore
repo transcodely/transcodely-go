@@ -1,0 +1,26 @@
+# Go build artifacts
+*.test
+*.out
+coverage.html
+coverage.txt
+go.work
+go.work.sum
+vendor/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Env
+.env
+.env.local
+
+# Buf
+buf.lock.bak

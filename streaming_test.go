@@ -11,8 +11,8 @@ import (
 // fakeConn is a streamConn that hands out a fixed sequence of (event, error)
 // tuples. After the slice is exhausted it returns io.EOF.
 type fakeConn[T any] struct {
-	steps []fakeStep[T]
-	idx   int
+	steps  []fakeStep[T]
+	idx    int
 	closed bool
 }
 

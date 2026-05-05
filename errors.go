@@ -54,11 +54,11 @@ func (e *baseError) Error() string {
 	return "transcodely: unknown error"
 }
 
-func (e *baseError) Unwrap() error      { return e.cause }
-func (e *baseError) ErrorCode() string  { return e.code }
-func (e *baseError) RequestID() string  { return e.requestID }
-func (e *baseError) Type() string       { return e.typ }
-func (e *baseError) HTTPStatus() int    { return e.httpCode }
+func (e *baseError) Unwrap() error     { return e.cause }
+func (e *baseError) ErrorCode() string { return e.code }
+func (e *baseError) RequestID() string { return e.requestID }
+func (e *baseError) Type() string      { return e.typ }
+func (e *baseError) HTTPStatus() int   { return e.httpCode }
 func (e *baseError) Errors() []FieldViolation {
 	if e == nil {
 		return nil

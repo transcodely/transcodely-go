@@ -22,10 +22,10 @@ func connErrWithMeta(code connect.Code, jsonMsg string, meta map[string]string) 
 
 func TestFromConnectError_StatusMapping(t *testing.T) {
 	cases := []struct {
-		name       string
-		code       connect.Code
-		assert     func(error) bool
-		wantHTTP   int
+		name     string
+		code     connect.Code
+		assert   func(error) bool
+		wantHTTP int
 	}{
 		{"Unauthenticated→Auth", connect.CodeUnauthenticated, func(e error) bool {
 			var t *AuthenticationError

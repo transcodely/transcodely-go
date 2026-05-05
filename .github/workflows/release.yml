@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  GO_VERSION: "1.23"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # ============================================================================
+  # Release Please — opens / updates the release PR, tags + creates a Release
+  # when the PR is merged.
+  # ============================================================================
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # Validate the new tag — runs the full test + build gate against the just-
+  # tagged commit, then warms proxy.golang.org so `go get .../@v0.x.y` and
+  # pkg.go.dev resolve immediately. Go has no separate registry; the GitHub
+  # tag is the release.
+  # ============================================================================
+  warm-proxy:
+    name: Validate + Warm proxy.golang.org
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Warm proxy.golang.org
+        run: |
+          MOD="github.com/transcodely/transcodely-go"
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          echo "Pinging proxy.golang.org for ${MOD}@${TAG}..."
+          # Up to 5 retries; the proxy may need a few seconds to see the new tag.
+          for i in 1 2 3 4 5; do
+            if curl -fsSL "https://proxy.golang.org/${MOD}/@v/${TAG}.info" -o /dev/null; then
+              echo "proxy.golang.org has ${MOD}@${TAG}"
+              exit 0
+            fi
+            echo "Attempt $i failed; sleeping 10s..."
+            sleep 10
+          done
+          echo "::warning::proxy.golang.org did not pick up ${MOD}@${TAG} within 50s — it'll resolve on first real go get"
+
+      - name: Release Summary
+        run: |
+          echo "## Go module release tagged" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ needs.release-please.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`${{ needs.release-please.outputs.tag_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Install:** \`go get github.com/transcodely/transcodely-go@${{ needs.release-please.outputs.tag_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **pkg.go.dev:** https://pkg.go.dev/github.com/transcodely/transcodely-go@${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY

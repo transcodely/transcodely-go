@@ -42,6 +42,7 @@ type (
 	GcsOriginConfig  = v1.GcsOriginConfig
 	S3OriginConfig   = v1.S3OriginConfig
 	HttpOriginConfig = v1.HttpOriginConfig
+	R2OriginConfig   = v1.R2OriginConfig
 	ValidationResult = v1.ValidationResult
 
 	App                 = v1.App
@@ -186,6 +187,7 @@ type (
 	OriginProvider   = v1.OriginProvider
 	OriginPermission = v1.OriginPermission
 	OriginStatus     = v1.OriginStatus
+	R2Jurisdiction   = v1.R2Jurisdiction
 
 	VideoStatus     = v1.VideoStatus
 	VideoVisibility = v1.VideoVisibility
@@ -404,6 +406,7 @@ const (
 	OriginProviderS3          = v1.OriginProvider_ORIGIN_PROVIDER_S3
 	OriginProviderHTTP        = v1.OriginProvider_ORIGIN_PROVIDER_HTTP
 	OriginProviderTranscodely = v1.OriginProvider_ORIGIN_PROVIDER_TRANSCODELY
+	OriginProviderR2          = v1.OriginProvider_ORIGIN_PROVIDER_R2
 )
 
 // OriginPermission values.
@@ -417,6 +420,15 @@ const (
 	OriginStatusActive   = v1.OriginStatus_ORIGIN_STATUS_ACTIVE
 	OriginStatusFailed   = v1.OriginStatus_ORIGIN_STATUS_FAILED
 	OriginStatusArchived = v1.OriginStatus_ORIGIN_STATUS_ARCHIVED
+)
+
+// R2Jurisdiction values. Cloudflare R2 data-residency locations; only valid
+// together with an account ID (the endpoint form selects jurisdiction via the
+// URL instead).
+const (
+	R2JurisdictionDefault = v1.R2Jurisdiction_R2_JURISDICTION_DEFAULT
+	R2JurisdictionEU      = v1.R2Jurisdiction_R2_JURISDICTION_EU
+	R2JurisdictionFedRAMP = v1.R2Jurisdiction_R2_JURISDICTION_FEDRAMP
 )
 
 // VideoStatus values.

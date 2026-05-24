@@ -22,6 +22,9 @@ func TestToScreamingSnake(t *testing.T) {
 		{"DRMSystem", "DRM_SYSTEM"},
 		{"HDRFormat", "HDR_FORMAT"},
 		{"Resolution", "RESOLUTION"},
+		// A digit followed by an uppercase letter takes no underscore, but the
+		// uppercase→lowercase boundary that follows does: "R2J..." → "R2_J...".
+		{"R2Jurisdiction", "R2_JURISDICTION"},
 	}
 	for _, c := range cases {
 		if got := toScreamingSnake(c.in); got != c.want {
@@ -42,6 +45,17 @@ func TestEnumPrefix(t *testing.T) {
 	if got := enumPrefix(priorityEnum); got != "JOB_PRIORITY_" {
 		t.Errorf("priority prefix = %q, want JOB_PRIORITY_", got)
 	}
+
+	origin := (&v1.Origin{}).ProtoReflect().Descriptor()
+	providerEnum := origin.Fields().ByName("provider").Enum()
+	jurisdictionEnum := (&v1.R2OriginConfig{}).ProtoReflect().Descriptor().Fields().ByName("jurisdiction").Enum()
+
+	if got := enumPrefix(providerEnum); got != "ORIGIN_PROVIDER_" {
+		t.Errorf("provider prefix = %q, want ORIGIN_PROVIDER_", got)
+	}
+	if got := enumPrefix(jurisdictionEnum); got != "R2_JURISDICTION_" {
+		t.Errorf("jurisdiction prefix = %q, want R2_JURISDICTION_", got)
+	}
 }
 
 // TestSimplifyExpandRoundTrip is the wire-format conformance matrix. One
@@ -57,6 +71,9 @@ func TestSimplifyExpandRoundTrip(t *testing.T) {
 
 	output := (&v1.OutputSpec{}).ProtoReflect().Descriptor()
 	formatEnum := output.Fields().ByName("type").Enum()
+
+	providerEnum := (&v1.Origin{}).ProtoReflect().Descriptor().Fields().ByName("provider").Enum()
+	jurisdictionEnum := (&v1.R2OriginConfig{}).ProtoReflect().Descriptor().Fields().ByName("jurisdiction").Enum()
 
 	type tc struct {
 		canonical, simple string
@@ -76,6 +93,16 @@ func TestSimplifyExpandRoundTrip(t *testing.T) {
 		{"RESOLUTION_2160P", "2160p", resEnum},
 		{"OUTPUT_FORMAT_HLS", "hls", formatEnum},
 		{"OUTPUT_FORMAT_DASH", "dash", formatEnum},
+		// Every OriginProvider variant, including R2 added as a first-class provider.
+		{"ORIGIN_PROVIDER_GCS", "gcs", providerEnum},
+		{"ORIGIN_PROVIDER_S3", "s3", providerEnum},
+		{"ORIGIN_PROVIDER_HTTP", "http", providerEnum},
+		{"ORIGIN_PROVIDER_TRANSCODELY", "transcodely", providerEnum},
+		{"ORIGIN_PROVIDER_R2", "r2", providerEnum},
+		// R2 data-residency jurisdictions.
+		{"R2_JURISDICTION_DEFAULT", "default", jurisdictionEnum},
+		{"R2_JURISDICTION_EU", "eu", jurisdictionEnum},
+		{"R2_JURISDICTION_FEDRAMP", "fedramp", jurisdictionEnum},
 	}
 
 	for _, c := range cases {

@@ -122,6 +122,89 @@ if err != nil {
 }
 ```
 
+## Origins
+
+An **origin** tells Transcodely where to read source media from. Create one with
+`client.Origins.Create` — the provider is inferred from which config block you
+set, so there is no `provider` field to pass.
+
+### Amazon S3
+
+```go
+origin, err := client.Origins.Create(ctx, &transcodely.OriginCreateParams{
+    Name:        "Marketing assets",
+    Permissions: []transcodely.OriginPermission{transcodely.OriginPermissionRead},
+    S3: &transcodely.S3OriginConfig{
+        Bucket: "my-bucket",
+        Region: "us-east-1",
+        Credentials: &transcodely.S3Credentials{
+            AccessKeyId:     os.Getenv("AWS_ACCESS_KEY_ID"),
+            SecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
+        },
+    },
+})
+```
+
+### Google Cloud Storage
+
+```go
+origin, err := client.Origins.Create(ctx, &transcodely.OriginCreateParams{
+    Name: "GCS source",
+    Gcs: &transcodely.GcsOriginConfig{
+        Bucket: "my-gcs-bucket",
+        Credentials: &transcodely.GcsCredentials{
+            ServiceAccountJson: os.Getenv("GCP_SERVICE_ACCOUNT_JSON"),
+        },
+    },
+})
+```
+
+### Public HTTP
+
+```go
+origin, err := client.Origins.Create(ctx, &transcodely.OriginCreateParams{
+    Name: "CDN mirror",
+    Http: &transcodely.HttpOriginConfig{
+        BaseUrl: "https://media.example.com",
+    },
+})
+```
+
+### Cloudflare R2
+
+R2 issues S3-compatible access keys, so it reuses `S3Credentials`. Point at the
+bucket either by **account ID** (Transcodely derives the endpoint, with an
+optional data-residency `Jurisdiction`) or by an explicit **endpoint** URL:
+
+```go
+origin, err := client.Origins.Create(ctx, &transcodely.OriginCreateParams{
+    Name:        "R2 source",
+    Permissions: []transcodely.OriginPermission{transcodely.OriginPermissionRead},
+    R2: &transcodely.R2OriginConfig{
+        Bucket:       "my-r2-bucket",
+        AccountId:    os.Getenv("R2_ACCOUNT_ID"),    // 32 lowercase hex chars
+        Jurisdiction: transcodely.R2JurisdictionEU,  // optional: Default, EU, FedRAMP
+        Credentials: &transcodely.S3Credentials{
+            AccessKeyId:     os.Getenv("R2_ACCESS_KEY_ID"),
+            SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
+        },
+    },
+
+    // Endpoint escape hatch — set this *instead of* AccountId/Jurisdiction:
+    //
+    // endpoint := "https://<account>.r2.cloudflarestorage.com"
+    // R2: &transcodely.R2OriginConfig{
+    //     Bucket:      "my-r2-bucket",
+    //     Endpoint:    &endpoint,
+    //     Credentials: &transcodely.S3Credentials{ /* ... */ },
+    // },
+})
+```
+
+> Provide **exactly one** of `AccountId` or `Endpoint`, and only set
+> `Jurisdiction` alongside `AccountId`. Both rules are enforced server-side and
+> surface as an `*transcodely.InvalidRequestError`.
+
 ## Configuration
 
 | Option | Default | Notes |

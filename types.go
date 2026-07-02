@@ -139,6 +139,26 @@ type (
 	MultipartAbortParams    = v1.AbortMultipartUploadRequest
 )
 
+// ---------- Webhooks ----------
+// Resource and param types for the webhook surface. The unified, customer-
+// facing [Event] type (produced by both [ConstructEvent] and the events
+// resource) is hand-written in webhooks.go and is intentionally NOT a proto
+// alias. Not to be confused with [WebhookConfig] above, which is the App's
+// legacy per-app notification URL.
+
+type (
+	WebhookEndpoint = v1.WebhookEndpoint
+	WebhookDelivery = v1.WebhookDelivery
+	EndpointHealth  = v1.GetEndpointHealthResponse
+	HealthBucket    = v1.HealthBucket
+
+	WebhookEndpointCreateParams = v1.CreateWebhookEndpointRequest
+	WebhookEndpointUpdateParams = v1.UpdateWebhookEndpointRequest
+	WebhookEndpointListParams   = v1.ListWebhookEndpointsRequest
+	WebhookDeliveryListParams   = v1.ListWebhookDeliveriesRequest
+	EventListParams             = v1.ListEventsRequest
+)
+
 // ---------- Pagination wire types ----------
 
 type (
@@ -191,6 +211,13 @@ type (
 
 	VideoStatus     = v1.VideoStatus
 	VideoVisibility = v1.VideoVisibility
+
+	APIKeyEnvironment  = v1.APIKeyEnvironment
+	AppStatus          = v1.AppStatus
+	OrganizationStatus = v1.OrganizationStatus
+	MembershipStatus   = v1.MembershipStatus
+	UserStatus         = v1.UserStatus
+	UserApprovalStatus = v1.UserApprovalStatus
 )
 
 // JobStatus values.
@@ -446,4 +473,46 @@ const (
 	VideoVisibilityPublic   = v1.VideoVisibility_VIDEO_VISIBILITY_PUBLIC
 	VideoVisibilityUnlisted = v1.VideoVisibility_VIDEO_VISIBILITY_UNLISTED
 	VideoVisibilityPrivate  = v1.VideoVisibility_VIDEO_VISIBILITY_PRIVATE
+)
+
+// APIKeyEnvironment values. Required on [APIKeyCreateParams]: the API rejects
+// a create whose environment is unset, so pass Live or Test explicitly. Keys
+// carry the matching prefix: ak_live_... for Live, ak_test_... for Test.
+const (
+	APIKeyEnvironmentLive = v1.APIKeyEnvironment_API_KEY_ENVIRONMENT_LIVE
+	APIKeyEnvironmentTest = v1.APIKeyEnvironment_API_KEY_ENVIRONMENT_TEST
+)
+
+// AppStatus values.
+const (
+	AppStatusActive   = v1.AppStatus_APP_STATUS_ACTIVE
+	AppStatusArchived = v1.AppStatus_APP_STATUS_ARCHIVED
+)
+
+// OrganizationStatus values.
+const (
+	OrganizationStatusActive    = v1.OrganizationStatus_ORGANIZATION_STATUS_ACTIVE
+	OrganizationStatusSuspended = v1.OrganizationStatus_ORGANIZATION_STATUS_SUSPENDED
+	OrganizationStatusDeleted   = v1.OrganizationStatus_ORGANIZATION_STATUS_DELETED
+)
+
+// MembershipStatus values.
+const (
+	MembershipStatusActive    = v1.MembershipStatus_MEMBERSHIP_STATUS_ACTIVE
+	MembershipStatusInvited   = v1.MembershipStatus_MEMBERSHIP_STATUS_INVITED
+	MembershipStatusSuspended = v1.MembershipStatus_MEMBERSHIP_STATUS_SUSPENDED
+)
+
+// UserStatus values.
+const (
+	UserStatusActive    = v1.UserStatus_USER_STATUS_ACTIVE
+	UserStatusSuspended = v1.UserStatus_USER_STATUS_SUSPENDED
+	UserStatusDeleted   = v1.UserStatus_USER_STATUS_DELETED
+)
+
+// UserApprovalStatus values.
+const (
+	UserApprovalStatusPending  = v1.UserApprovalStatus_USER_APPROVAL_STATUS_PENDING
+	UserApprovalStatusApproved = v1.UserApprovalStatus_USER_APPROVAL_STATUS_APPROVED
+	UserApprovalStatusRejected = v1.UserApprovalStatus_USER_APPROVAL_STATUS_REJECTED
 )

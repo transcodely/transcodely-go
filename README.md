@@ -50,7 +50,7 @@ func main() {
 The SDK mirrors Stripe's Go conventions:
 
 - **Functional options** on `transcodely.New` — `WithBaseURL`, `WithHTTPClient`, `WithMaxRetries`, `WithUserAgent`, `WithAPIVersion`, `WithAutoIdempotency`.
-- **Resource namespaces** off the root client: `client.Jobs`, `client.Videos`, `client.Presets`, `client.Origins`, `client.Apps`, `client.APIKeys`, `client.Organizations`, `client.Memberships`, `client.Users`, `client.Health`.
+- **Resource namespaces** off the root client: `client.Jobs`, `client.Videos`, `client.Presets`, `client.Origins`, `client.Apps`, `client.APIKeys`, `client.Organizations`, `client.Memberships`, `client.Users`, `client.Health`, `client.Events`, `client.WebhookEndpoints`.
 - **Typed errors** via `errors.As`. Concrete types implement the
   [`Error`](https://pkg.go.dev/github.com/transcodely/transcodely-go#Error) interface
   and expose `ErrorCode()` and `RequestID()`. Switch on `*NotFoundError`,
@@ -205,6 +205,99 @@ origin, err := client.Origins.Create(ctx, &transcodely.OriginCreateParams{
 > `Jurisdiction` alongside `AccountId`. Both rules are enforced server-side and
 > surface as an `*transcodely.InvalidRequestError`.
 
+## Webhooks
+
+A **webhook endpoint** is an HTTPS URL that receives signed POST requests when
+events happen in your app — a job succeeds, a video is uploaded, and so on.
+
+### Verify and handle a delivery
+
+`transcodely.ConstructEvent` verifies the signature, enforces the timestamp
+tolerance (5 minutes, Stripe parity), and decodes the body into a typed
+`*transcodely.Event`. It returns a `*WebhookSignatureError`,
+`*WebhookTimestampError`, or `*WebhookPayloadError` on failure — all reachable
+together via the `WebhookError` interface. It needs no client, so a receiver
+process never has to hold an API key.
+
+```go
+func handler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
+    secret := os.Getenv("WEBHOOK_SIGNING_SECRET") // whsec_... from Create
+
+    event, err := transcodely.ConstructEvent(body, r.Header.Get(transcodely.SignatureHeader), secret)
+    if err != nil {
+        http.Error(w, "invalid signature", http.StatusBadRequest) // non-2xx → retried
+        return
+    }
+
+    switch event.Type {
+    case transcodely.EventTypeJobSucceeded:
+        job, _ := event.Job() // typed accessor: *transcodely.Job
+        log.Printf("job %s %s", job.GetId(), job.GetStatus())
+    case transcodely.EventTypeVideoUploaded:
+        vid, _ := event.Video()
+        log.Printf("video %s uploaded", vid.GetId())
+    default:
+        log.Printf("unhandled %s (%s)", event.Type, event.ID)
+    }
+    w.WriteHeader(http.StatusOK) // ack fast, then work asynchronously
+}
+```
+
+`event.Data` holds the decoded resource — `*Job`, `*JobOutput`, `*Video`, or
+`*App` — pulled out with the matching accessor (`event.Job()`,
+`event.JobOutput()`, `event.Video()`, `event.App()`). For an event type a
+newer API version added that this SDK doesn't yet know, `event.RawData()`
+returns the raw JSON. Deduplicate on `event.ID`; a retried delivery carries the
+same `evt_` id.
+
+During a secret rotation, accept both keys for the 24h overlap window:
+
+```go
+event, err := transcodely.ConstructEventWithSecrets(
+    body, r.Header.Get(transcodely.SignatureHeader),
+    []string{newSecret, previousSecret})
+```
+
+### Manage endpoints
+
+```go
+endpoint, err := client.WebhookEndpoints.Create(ctx, &transcodely.WebhookEndpointCreateParams{
+    AppId:         "app_...",
+    Url:           "https://example.com/webhooks",
+    EnabledEvents: []string{"job.succeeded", "video.uploaded"}, // or []string{"*"}
+})
+// endpoint.GetSecret() is populated ONLY here and on RotateSecret — store it now.
+
+iter := client.WebhookEndpoints.List(ctx, &transcodely.WebhookEndpointListParams{AppId: "app_..."})
+for iter.Next() {
+    ep := iter.Current()
+    log.Printf("%s %s", ep.GetId(), ep.GetStatus())
+}
+
+rotated, _ := client.WebhookEndpoints.RotateSecret(ctx, endpoint.GetId())
+_ = rotated.GetSecret() // the new secret, shown once
+```
+
+### Query and replay events
+
+Every event the API hands back is the **same** `*transcodely.Event` shape
+`ConstructEvent` produces, so a handler tested against a retrieved event
+behaves identically to one driven by a live delivery.
+
+```go
+event, _ := client.Events.Retrieve(ctx, "evt_...")
+
+iter := client.Events.List(ctx, &transcodely.EventListParams{
+    AppId:      "app_...",
+    Pagination: &transcodely.PaginationRequest{Limit: 50},
+})
+for iter.Next() { /* iter.Current() is a *transcodely.Event */ }
+
+// Re-queue delivery (all subscribed endpoints, or a subset).
+deliveries, _ := client.Events.Resend(ctx, "evt_...")
+```
+
 ## Configuration
 
 | Option | Default | Notes |
@@ -229,6 +322,8 @@ See [`examples/`](../../examples/go) for ready-to-run programs:
 - `02_watch_job` — stream a job to completion
 - `03_pagination` — iterate every job
 - `04_error_handling` — typed error matching
+- `05_create_r2_origin` — register a Cloudflare R2 origin
+- `06_verify_webhook` — verify and handle webhook deliveries (net/http)
 
 ## Generated code
 

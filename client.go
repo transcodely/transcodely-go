@@ -31,7 +31,9 @@
 //	}
 //
 // All resources hang off the root [Client]: Jobs, Videos, Presets, Origins,
-// Apps, APIKeys, Organizations, Memberships, Users, Health.
+// Apps, APIKeys, Organizations, Memberships, Users, Health, Events,
+// WebhookEndpoints. Verify incoming webhook deliveries with the package-level
+// [ConstructEvent] (also reachable as client.Webhooks.ConstructEvent).
 //
 // Errors are typed; switch on them with errors.As. See the [Error] interface
 // for the common surface and [APIConnectionError], [APIError],
@@ -61,16 +63,23 @@ var ErrMissingAPIKey = errors.New("transcodely: api key is required")
 type Client struct {
 	cfg *config
 
-	Jobs          *Jobs
-	Videos        *Videos
-	Presets       *Presets
-	Origins       *Origins
-	Apps          *Apps
-	APIKeys       *APIKeys
-	Organizations *Organizations
-	Memberships   *Memberships
-	Users         *Users
-	Health        *Health
+	Jobs             *Jobs
+	Videos           *Videos
+	Presets          *Presets
+	Origins          *Origins
+	Apps             *Apps
+	APIKeys          *APIKeys
+	Organizations    *Organizations
+	Memberships      *Memberships
+	Users            *Users
+	Health           *Health
+	Events           *Events
+	WebhookEndpoints *WebhookEndpoints
+
+	// Webhooks groups the stateless webhook helpers (ConstructEvent,
+	// VerifySignature). It needs no client — the package-level functions are
+	// equivalent — but is exposed here for discoverability.
+	Webhooks Webhooks
 }
 
 // New constructs a Client. apiKey is required and should be a value like
@@ -118,6 +127,10 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 	c.Memberships = newMemberships(transcodelyv1connect.NewMembershipServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Users = newUsers(transcodelyv1connect.NewUserServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Health = newHealth(transcodelyv1connect.NewHealthServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
+
+	webhookSvc := transcodelyv1connect.NewWebhookServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...)
+	c.Events = newEvents(webhookSvc)
+	c.WebhookEndpoints = newWebhookEndpoints(webhookSvc)
 
 	return c, nil
 }

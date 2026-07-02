@@ -100,6 +100,57 @@ type InvalidRequestError struct{ baseError }
 // cancelable in current state).
 type PreconditionError struct{ baseError }
 
+// WebhookError is implemented by every error originating from webhook
+// signature verification and event construction ([ConstructEvent]). Unlike the
+// other SDK errors these are produced locally — no API call was made — so
+// HTTPStatus() is 0 and RequestID() is always "". The concrete types are
+// [WebhookSignatureError], [WebhookTimestampError], and [WebhookPayloadError].
+//
+// Match any webhook error with errors.As:
+//
+//	var we transcodely.WebhookError
+//	if errors.As(err, &we) {
+//	    // any signature/timestamp/payload failure
+//	}
+//
+// or match a specific one:
+//
+//	var sigErr *transcodely.WebhookSignatureError
+//	if errors.As(err, &sigErr) { ... }
+type WebhookError interface {
+	Error
+	webhookError()
+}
+
+// WebhookSignatureError indicates the signature header was missing or
+// malformed, or no v1 signature matched the computed HMAC.
+type WebhookSignatureError struct{ baseError }
+
+// WebhookTimestampError indicates the signature timestamp fell outside the
+// tolerance window (default [DefaultToleranceSeconds]) — a replay or
+// clock-skew guard.
+type WebhookTimestampError struct{ baseError }
+
+// WebhookPayloadError indicates the body was not valid JSON or did not match
+// the expected event-envelope shape.
+type WebhookPayloadError struct{ baseError }
+
+func (*WebhookSignatureError) webhookError() {}
+func (*WebhookTimestampError) webhookError() {}
+func (*WebhookPayloadError) webhookError()   {}
+
+func newWebhookSignatureError(msg string) *WebhookSignatureError {
+	return &WebhookSignatureError{baseError{msg: msg}}
+}
+
+func newWebhookTimestampError(msg string) *WebhookTimestampError {
+	return &WebhookTimestampError{baseError{msg: msg}}
+}
+
+func newWebhookPayloadError(msg string, cause error) *WebhookPayloadError {
+	return &WebhookPayloadError{baseError{msg: msg, cause: cause}}
+}
+
 // errorPayload mirrors the server JSON error envelope.
 type errorPayload struct {
 	Type    string           `json:"type,omitempty"`

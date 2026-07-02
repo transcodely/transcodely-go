@@ -59,7 +59,7 @@ func (m *Memberships) Get(ctx context.Context, id string) (*MembershipWithUser, 
 }
 
 // UpdateRole changes a member's role.
-func (m *Memberships) UpdateRole(ctx context.Context, id string, role MembershipRole) (*Membership, error) {
+func (m *Memberships) UpdateRole(ctx context.Context, id string, role MembershipRole) (*MembershipWithUser, error) {
 	req := &v1.UpdateMembershipRoleRequest{Id: id, Role: role}
 	resp, err := m.client.UpdateRole(ctx, connect.NewRequest(req))
 	if err != nil {

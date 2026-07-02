@@ -85,7 +85,8 @@ type (
 	SubtitleTrack = v1.SubtitleTrack
 	BurnInStyle   = v1.BurnInStyle
 
-	ThumbnailSpec = v1.ThumbnailSpec
+	ThumbnailSpec   = v1.ThumbnailSpec
+	ThumbnailResult = v1.ThumbnailResult
 
 	StreamingConfig = v1.StreamingConfig
 

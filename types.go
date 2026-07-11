@@ -10,15 +10,16 @@ import v1 "github.com/transcodely/transcodely-go/internal/gen/transcodely/v1"
 // ---------- Core entities ----------
 
 type (
-	Job              = v1.Job
-	JobOutput        = v1.JobOutput
-	OutputSpec       = v1.OutputSpec
-	VideoVariant     = v1.VideoVariant
-	AudioTrackConfig = v1.AudioTrackConfig
-	HLSConfig        = v1.HLSConfig
-	DASHConfig       = v1.DASHConfig
-	SegmentConfig    = v1.SegmentConfig
-	ExecutionTiming  = v1.ExecutionTiming
+	Job                 = v1.Job
+	JobOutput           = v1.JobOutput
+	OutputVariantResult = v1.OutputVariantResult
+	OutputSpec          = v1.OutputSpec
+	VideoVariant        = v1.VideoVariant
+	AudioTrackConfig    = v1.AudioTrackConfig
+	HLSConfig           = v1.HLSConfig
+	DASHConfig          = v1.DASHConfig
+	SegmentConfig       = v1.SegmentConfig
+	ExecutionTiming     = v1.ExecutionTiming
 
 	PricingSnapshot        = v1.PricingSnapshot
 	VariantPricingSnapshot = v1.VariantPricingSnapshot

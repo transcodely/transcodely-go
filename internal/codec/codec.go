@@ -228,7 +228,7 @@ func enumPrefix(enumDesc protoreflect.EnumDescriptor) string {
 // toScreamingSnake converts CamelCase to SCREAMING_SNAKE_CASE.
 // "JobStatus" → "JOB_STATUS"
 // "VideoCodec" → "VIDEO_CODEC"
-// "APIKeyEnvironment" → "API_KEY_ENVIRONMENT"
+// "HLSSegmentFormat" → "HLS_SEGMENT_FORMAT"
 func toScreamingSnake(s string) string {
 	var result strings.Builder
 	for i, r := range s {

@@ -74,7 +74,7 @@ type Client struct {
 }
 
 // New constructs a Client. apiKey is required and should be a value like
-// `ak_live_…` or `ak_test_…`. Pass any number of [Option]s to override
+// `ak_…`. Pass any number of [Option]s to override
 // defaults.
 func New(apiKey string, opts ...Option) (*Client, error) {
 	if apiKey == "" {

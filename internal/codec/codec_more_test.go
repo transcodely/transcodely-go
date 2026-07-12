@@ -17,7 +17,7 @@ func TestToScreamingSnake(t *testing.T) {
 		{"JobStatus", "JOB_STATUS"},
 		{"VideoCodec", "VIDEO_CODEC"},
 		{"OutputFormat", "OUTPUT_FORMAT"},
-		{"APIKeyEnvironment", "API_KEY_ENVIRONMENT"},
+		{"HLSSegmentFormat", "HLS_SEGMENT_FORMAT"},
 		{"HTTPCredentials", "HTTP_CREDENTIALS"},
 		{"DRMSystem", "DRM_SYSTEM"},
 		{"HDRFormat", "HDR_FORMAT"},

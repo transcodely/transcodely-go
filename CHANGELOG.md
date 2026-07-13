@@ -4,6 +4,23 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.2.0](https://github.com/transcodely/transcodely-go/compare/v0.1.3...v0.2.0) (2026-07-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* removed the API-key environment field and the APIKeyEnvironment enum from the generated types, and removed livemode from the webhook Event.
+
+### Features
+
+* proto resync — rotation metadata + measured output metrics ([#12](https://github.com/transcodely/transcodely-go/issues/12)) ([6d88c70](https://github.com/transcodely/transcodely-go/commit/6d88c7026d91b776bd7703e7785093f5516a9815))
+* resync protos — API-key environment and webhook livemode removed ([#14](https://github.com/transcodely/transcodely-go/issues/14)) ([22e061e](https://github.com/transcodely/transcodely-go/commit/22e061e4153bc9a2cbbec91d22a6c92c72e49bba))
+
+
+### Documentation
+
+* add CLAUDE.md ([#10](https://github.com/transcodely/transcodely-go/issues/10)) ([7aafc5e](https://github.com/transcodely/transcodely-go/commit/7aafc5ec2e15fa64443c0f7fcd9b4d3c3b607ed2))
+
 ## [0.1.3](https://github.com/transcodely/transcodely-go/compare/v0.1.2...v0.1.3) (2026-07-07)
 
 

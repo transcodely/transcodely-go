@@ -1,0 +1,294 @@
+package transcodely
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+const testSecret = "whsec_test_0123456789abcdef"
+
+// fixedClock returns a clock override pinned to ts (unix seconds).
+func fixedClock(ts int64) WebhookVerifyOption {
+	return withWebhookClock(func() time.Time { return time.Unix(ts, 0) })
+}
+
+// signWith builds a Transcodely-Signature header value for body under secret at ts.
+func signWith(secret string, ts int64, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(append([]byte(strconv.FormatInt(ts, 10)+"."), body...))
+	return fmt.Sprintf("t=%d,v1=%s", ts, hex.EncodeToString(mac.Sum(nil)))
+}
+
+// envelope builds a webhook envelope with the given type and inner data object.
+func envelope(evtType, dataJSON string) []byte {
+	return []byte(fmt.Sprintf(`{
+		"id": "evt_a1b2c3d4e5f6g7h8",
+		"object": "event",
+		"api_version": "2026-05-23",
+		"created": "2026-05-24T10:55:08Z",
+		"type": %q,
+		"data": %s,
+		"pending_webhooks": 0,
+		"request": { "id": "req_abc123", "idempotency_key": null }
+	}`, evtType, dataJSON))
+}
+
+func jobEnvelope() []byte {
+	return envelope("job.succeeded", `{"id":"job_1","object":"job","status":"completed"}`)
+}
+
+func TestConstructEvent_ValidSignatureDecodesJob(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	sig := signWith(testSecret, ts, body)
+
+	ev, err := ConstructEvent(body, sig, testSecret, fixedClock(ts))
+	if err != nil {
+		t.Fatalf("ConstructEvent: %v", err)
+	}
+	if ev.ID != "evt_a1b2c3d4e5f6g7h8" {
+		t.Errorf("ID = %q", ev.ID)
+	}
+	if ev.Type != EventTypeJobSucceeded {
+		t.Errorf("Type = %q, want %q", ev.Type, EventTypeJobSucceeded)
+	}
+	if ev.Object != "event" {
+		t.Errorf("Object = %q", ev.Object)
+	}
+	if ev.APIVersion != "2026-05-23" {
+		t.Errorf("APIVersion = %q", ev.APIVersion)
+	}
+	if ev.Request.ID != "req_abc123" {
+		t.Errorf("Request.ID = %q", ev.Request.ID)
+	}
+	if ev.Request.IdempotencyKey != nil {
+		t.Errorf("Request.IdempotencyKey = %v, want nil", *ev.Request.IdempotencyKey)
+	}
+	job, ok := ev.Job()
+	if !ok {
+		t.Fatal("Job() ok = false, want true")
+	}
+	if job.GetId() != "job_1" {
+		t.Errorf("job.GetId() = %q", job.GetId())
+	}
+	// The codec expands the simplified enum "completed" → JOB_STATUS_COMPLETED.
+	if job.GetStatus() != JobStatusCompleted {
+		t.Errorf("job.GetStatus() = %v, want completed", job.GetStatus())
+	}
+	// Wrong-type accessors return false.
+	if _, ok := ev.Video(); ok {
+		t.Error("Video() ok = true on a job event")
+	}
+	if _, ok := ev.JobOutput(); ok {
+		t.Error("JobOutput() ok = true on a job event")
+	}
+}
+
+func TestConstructEvent_TypedAccessorsPerGroup(t *testing.T) {
+	cases := []struct {
+		evtType string
+		data    string
+		check   func(*WebhookEvent) bool
+	}{
+		{"output.ready", `{"id":"out_1","object":"job_output","output_url":"https://cdn/x.m3u8"}`, func(e *WebhookEvent) bool {
+			o, ok := e.JobOutput()
+			return ok && o.GetOutputUrl() == "https://cdn/x.m3u8"
+		}},
+		{"video.uploaded", `{"id":"vid_1","object":"video"}`, func(e *WebhookEvent) bool { v, ok := e.Video(); return ok && v.GetId() == "vid_1" }},
+		{"app.updated", `{"id":"app_1","object":"app"}`, func(e *WebhookEvent) bool { a, ok := e.App(); return ok && a.GetId() == "app_1" }},
+	}
+	ts := int64(1716480293)
+	for _, c := range cases {
+		t.Run(c.evtType, func(t *testing.T) {
+			body := envelope(c.evtType, c.data)
+			sig := signWith(testSecret, ts, body)
+			ev, err := ConstructEvent(body, sig, testSecret, fixedClock(ts))
+			if err != nil {
+				t.Fatalf("ConstructEvent: %v", err)
+			}
+			if !c.check(ev) {
+				t.Errorf("typed accessor failed for %s", c.evtType)
+			}
+		})
+	}
+}
+
+func TestConstructEvent_BadSignature(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	sig := signWith("whsec_wrong_secret", ts, body)
+
+	_, err := ConstructEvent(body, sig, testSecret, fixedClock(ts))
+	var sigErr *WebhookSignatureError
+	if !errors.As(err, &sigErr) {
+		t.Fatalf("err = %v, want *WebhookSignatureError", err)
+	}
+}
+
+func TestConstructEvent_ExpiredTimestamp(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	sig := signWith(testSecret, ts, body)
+
+	// Verify 10 minutes later with the default 5-minute tolerance.
+	_, err := ConstructEvent(body, sig, testSecret, fixedClock(ts+600))
+	var tsErr *WebhookTimestampError
+	if !errors.As(err, &tsErr) {
+		t.Fatalf("err = %v, want *WebhookTimestampError", err)
+	}
+}
+
+func TestConstructEvent_ToleranceOverrideAcceptsOldTimestamp(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	sig := signWith(testSecret, ts, body)
+
+	// 10 minutes later but with a 15-minute tolerance → accepted.
+	_, err := ConstructEvent(body, sig, testSecret, fixedClock(ts+600), WithWebhookTolerance(15*time.Minute))
+	if err != nil {
+		t.Fatalf("ConstructEvent with widened tolerance: %v", err)
+	}
+}
+
+func TestConstructEvent_MalformedHeader(t *testing.T) {
+	body := jobEnvelope()
+	cases := []string{
+		"",
+		"v1=deadbeef",              // no timestamp
+		"t=1716480293",             // no v1
+		"garbage",                  // no key=value
+		"t=notanumber,v1=deadbeef", // unparsable timestamp
+	}
+	for _, h := range cases {
+		t.Run(h, func(t *testing.T) {
+			_, err := ConstructEvent(body, h, testSecret, fixedClock(1716480293))
+			var sigErr *WebhookSignatureError
+			if !errors.As(err, &sigErr) {
+				t.Fatalf("header %q: err = %v, want *WebhookSignatureError", h, err)
+			}
+		})
+	}
+}
+
+func TestConstructEvent_RotatedSecretDualVerification(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	newSecret := "whsec_new_secret_value"
+	oldSecret := "whsec_old_secret_value"
+
+	// Delivery still signed with the OLD secret during the overlap window.
+	sig := signWith(oldSecret, ts, body)
+
+	// Single new secret rejects it.
+	if _, err := ConstructEvent(body, sig, newSecret, fixedClock(ts)); err == nil {
+		t.Fatal("expected rejection when verifying old-signed body with only the new secret")
+	}
+	// Passing both accepts it.
+	if _, err := ConstructEventWithSecrets(body, sig, []string{newSecret, oldSecret}, fixedClock(ts)); err != nil {
+		t.Fatalf("ConstructEventWithSecrets: %v", err)
+	}
+}
+
+func TestConstructEvent_DualV1EntriesInHeader(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	newSecret := "whsec_new_secret_value"
+	oldSecret := "whsec_old_secret_value"
+
+	// Rotation window: the header carries a v1 entry for each active secret.
+	newSig := signWith(newSecret, ts, body)  // t=..,v1=<new>
+	oldOnly := signWith(oldSecret, ts, body) // t=..,v1=<old>
+	oldV1 := oldOnly[strings.Index(oldOnly, "v1="):]
+	combined := newSig + "," + oldV1
+
+	// A handler that only knows the old secret still matches its v1 entry.
+	if _, err := ConstructEvent(body, combined, oldSecret, fixedClock(ts)); err != nil {
+		t.Fatalf("ConstructEvent with dual v1 entries: %v", err)
+	}
+}
+
+func TestConstructEvent_CaseInsensitiveHex(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	// The header keys are case-sensitive (t=/v1=), so only uppercase the hex.
+	sig := "t=" + strconv.FormatInt(ts, 10) + ",v1=" + strings.ToUpper(hexSigOf(testSecret, ts, body))
+
+	if _, err := ConstructEvent(body, sig, testSecret, fixedClock(ts)); err != nil {
+		t.Fatalf("uppercase hex should still verify: %v", err)
+	}
+}
+
+func hexSigOf(secret string, ts int64, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(append([]byte(strconv.FormatInt(ts, 10)+"."), body...))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func TestConstructEvent_PayloadErrors(t *testing.T) {
+	ts := int64(1716480293)
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"not json", `not json at all`},
+		{"not an object", `[1,2,3]`},
+		{"object not event", `{"id":"evt_1","object":"nope","api_version":"v","created":"c","type":"job.succeeded","data":{},"pending_webhooks":0,"request":{"id":null,"idempotency_key":null}}`},
+		{"missing id", `{"object":"event","api_version":"v","created":"c","type":"job.succeeded","data":{},"pending_webhooks":0,"request":{"id":null,"idempotency_key":null}}`},
+		{"data not object", `{"id":"evt_1","object":"event","api_version":"v","created":"c","type":"job.succeeded","data":"x","pending_webhooks":0,"request":{"id":null,"idempotency_key":null}}`},
+		{"pending not number", `{"id":"evt_1","object":"event","api_version":"v","created":"c","type":"job.succeeded","data":{},"pending_webhooks":true,"request":{"id":null,"idempotency_key":null}}`},
+		{"request id empty string", `{"id":"evt_1","object":"event","api_version":"v","created":"c","type":"job.succeeded","data":{},"pending_webhooks":0,"request":{"id":"","idempotency_key":null}}`},
+		{"request not object", `{"id":"evt_1","object":"event","api_version":"v","created":"c","type":"job.succeeded","data":{},"pending_webhooks":0,"request":"x"}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			body := []byte(c.body)
+			sig := signWith(testSecret, ts, body)
+			_, err := ConstructEvent(body, sig, testSecret, fixedClock(ts))
+			var payErr *WebhookPayloadError
+			if !errors.As(err, &payErr) {
+				t.Fatalf("err = %v, want *WebhookPayloadError", err)
+			}
+		})
+	}
+}
+
+func TestConstructEvent_UnknownTypeStillVerifies(t *testing.T) {
+	ts := int64(1716480293)
+	// A future event type this SDK version doesn't know. It must still verify
+	// and surface, with a nil typed resource and the raw data available.
+	body := envelope("subscription.updated", `{"id":"sub_1","object":"subscription"}`)
+	sig := signWith(testSecret, ts, body)
+
+	ev, err := ConstructEvent(body, sig, testSecret, fixedClock(ts))
+	if err != nil {
+		t.Fatalf("ConstructEvent: %v", err)
+	}
+	if ev.Type != "subscription.updated" {
+		t.Errorf("Type = %q", ev.Type)
+	}
+	if ev.Data() != nil {
+		t.Errorf("Data() = %v, want nil for unknown type", ev.Data())
+	}
+	if _, ok := ev.Job(); ok {
+		t.Error("Job() ok = true for unknown type")
+	}
+	if len(ev.RawData()) == 0 {
+		t.Error("RawData() empty, want the raw data bytes retained")
+	}
+}
+
+func TestConstructEvent_EmptySecretsRejected(t *testing.T) {
+	ts := int64(1716480293)
+	body := jobEnvelope()
+	sig := signWith(testSecret, ts, body)
+	if err := VerifyWebhookSignature(body, sig, nil, fixedClock(ts)); err == nil {
+		t.Fatal("expected error when no secrets are supplied")
+	}
+}

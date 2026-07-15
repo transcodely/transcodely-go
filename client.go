@@ -17,7 +17,7 @@
 //	        log.Fatal(err)
 //	    }
 //	    job, err := client.Jobs.Create(context.Background(), &transcodely.JobCreateParams{
-//	        InputURL: "https://example.com/in.mp4",
+//	        InputUrl: "https://example.com/in.mp4",
 //	        Outputs: []*transcodely.OutputSpec{
 //	            {Type: transcodely.OutputFormatHLS, Video: []*transcodely.VideoVariant{
 //	                {Codec: transcodely.VideoCodecH264, Resolution: transcodely.Resolution1080P},
@@ -31,7 +31,10 @@
 //	}
 //
 // All resources hang off the root [Client]: Jobs, Videos, Presets, Origins,
-// Apps, APIKeys, Organizations, Memberships, Users, Health.
+// Apps, APIKeys, Organizations, Memberships, Users, Health, WebhookEndpoints,
+// Events.
+//
+// Verify inbound webhook deliveries with the package-level [ConstructEvent].
 //
 // Errors are typed; switch on them with errors.As. See the [Error] interface
 // for the common surface and [APIConnectionError], [APIError],
@@ -71,6 +74,9 @@ type Client struct {
 	Memberships   *Memberships
 	Users         *Users
 	Health        *Health
+
+	WebhookEndpoints *WebhookEndpoints
+	Events           *Events
 }
 
 // New constructs a Client. apiKey is required and should be a value like
@@ -118,6 +124,10 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 	c.Memberships = newMemberships(transcodelyv1connect.NewMembershipServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Users = newUsers(transcodelyv1connect.NewUserServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Health = newHealth(transcodelyv1connect.NewHealthServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
+
+	webhookClient := transcodelyv1connect.NewWebhookServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...)
+	c.WebhookEndpoints = newWebhookEndpoints(webhookClient)
+	c.Events = newEvents(webhookClient)
 
 	return c, nil
 }

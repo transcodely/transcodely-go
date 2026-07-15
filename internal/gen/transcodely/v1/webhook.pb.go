@@ -38,10 +38,11 @@ type WebhookEndpoint struct {
 	Description *string `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// Event types this endpoint subscribes to.
 	// Use "*" to subscribe to all event types.
-	// Possible values: "job.created", "job.updated", "job.succeeded",
-	// "job.failed", "job.canceled", "job.progress", "output.created",
-	// "output.ready", "output.failed", "output.progress",
-	// "video.uploaded", "video.deleted", "app.created", "app.updated", or "*".
+	// Possible values: "job.created", "job.succeeded", "job.failed",
+	// "job.canceled", "job.progress", "output.created", "output.ready",
+	// "output.failed", "output.progress", "video.uploaded", "video.deleted",
+	// "app.created", "app.updated", or "*".
+	// Keep in sync with domain.WebhookEventTypes() ("job.updated" does not exist).
 	EnabledEvents []string `protobuf:"bytes,5,rep,name=enabled_events,json=enabledEvents,proto3" json:"enabled_events,omitempty"`
 	// Operational status: "enabled" or "disabled".
 	// Wire value is lowercase per project convention.

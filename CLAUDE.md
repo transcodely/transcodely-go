@@ -29,6 +29,22 @@ not done until it's been synced here by hand (org-wide convention, see the
   namespace, a new typed error code, etc.) — `buf generate` only regenerates
   `internal/gen`, it doesn't wire up ergonomic helpers.
 
+## Docs are the contract (drift)
+
+The public docs (`transcodely/web` → `src/routes/(docs)/docs/**`, especially
+`getting-started/sdks/go` and the per-resource SDK method maps such as the one in
+`api-reference/webhooks`) document this SDK's exact public surface. Rules:
+
+- Any public-surface change (methods, params structs, enums, webhook event types,
+  error accessors) must be mirrored in those web docs pages **in the same release
+  window**. Web's mechanical drift gate validates proto-level facts but does NOT
+  parse `go` code fences — whoever changes this SDK owns the docs snippets.
+- Before renaming/removing anything public, grep the web repo's docs for usages
+  (` ```go ` fences calling `client.<Resource>.<Method>`); docs may also reference
+  capabilities that shipped here first.
+- Vendored proto comments flow into generated code and docs — when resyncing, take
+  the api repo's comments verbatim (they are maintained as public documentation there).
+
 ## Release automation
 
 [Release Please](https://github.com/googleapis/release-please) (`.github/workflows/release.yml`,

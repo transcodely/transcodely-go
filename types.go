@@ -62,6 +62,11 @@ type (
 	HealthCheckResponse = v1.HealthCheckResponse
 	ComponentHealth     = v1.ComponentHealth
 
+	WebhookEndpoint = v1.WebhookEndpoint
+	WebhookDelivery = v1.WebhookDelivery
+	EndpointHealth  = v1.GetEndpointHealthResponse
+	HealthBucket    = v1.HealthBucket
+
 	ErrorDetails        = v1.ErrorDetails
 	ProtoFieldViolation = v1.FieldViolation
 )
@@ -109,33 +114,40 @@ type (
 // ---------- Param types — re-exported request messages ----------
 
 type (
-	JobCreateParams         = v1.CreateJobRequest
-	JobListParams           = v1.ListJobsRequest
-	VideoListParams         = v1.ListVideosRequest
-	VideoUpdateParams       = v1.UpdateVideoRequest
-	PresetCreateParams      = v1.CreatePresetRequest
-	PresetUpdateParams      = v1.UpdatePresetRequest
-	PresetListParams        = v1.ListPresetsRequest
-	OriginCreateParams      = v1.CreateOriginRequest
-	OriginUpdateParams      = v1.UpdateOriginRequest
-	OriginListParams        = v1.ListOriginsRequest
-	AppCreateParams         = v1.CreateAppRequest
-	AppUpdateParams         = v1.UpdateAppRequest
-	AppListParams           = v1.ListAppsRequest
-	APIKeyCreateParams      = v1.CreateAPIKeyRequest
-	APIKeyListParams        = v1.ListAPIKeysRequest
-	OrgCreateParams         = v1.CreateOrganizationRequest
-	OrgUpdateParams         = v1.UpdateOrganizationRequest
-	OrgListParams           = v1.ListOrganizationsRequest
-	MembershipListParams    = v1.ListMembershipsRequest
-	UserUpdateMeParams      = v1.UpdateMeRequest
-	UserListParams          = v1.ListUsersRequest
-	UploadCreateParams      = v1.CreateUploadRequest
-	UploadCompleteParams    = v1.CompleteUploadRequest
-	MultipartCreateParams   = v1.CreateMultipartUploadRequest
-	MultipartPartURLsParams = v1.GetUploadPartUrlsRequest
-	MultipartCompleteParams = v1.CompleteMultipartUploadRequest
-	MultipartAbortParams    = v1.AbortMultipartUploadRequest
+	JobCreateParams              = v1.CreateJobRequest
+	JobListParams                = v1.ListJobsRequest
+	VideoListParams              = v1.ListVideosRequest
+	VideoUpdateParams            = v1.UpdateVideoRequest
+	PresetCreateParams           = v1.CreatePresetRequest
+	PresetUpdateParams           = v1.UpdatePresetRequest
+	PresetListParams             = v1.ListPresetsRequest
+	OriginCreateParams           = v1.CreateOriginRequest
+	OriginUpdateParams           = v1.UpdateOriginRequest
+	OriginListParams             = v1.ListOriginsRequest
+	AppCreateParams              = v1.CreateAppRequest
+	AppUpdateParams              = v1.UpdateAppRequest
+	AppListParams                = v1.ListAppsRequest
+	AppUpdateHostingConfigParams = v1.UpdateHostingConfigRequest
+	APIKeyCreateParams           = v1.CreateAPIKeyRequest
+	APIKeyListParams             = v1.ListAPIKeysRequest
+	OrgCreateParams              = v1.CreateOrganizationRequest
+	OrgUpdateParams              = v1.UpdateOrganizationRequest
+	OrgListParams                = v1.ListOrganizationsRequest
+	MembershipListParams         = v1.ListMembershipsRequest
+	UserUpdateMeParams           = v1.UpdateMeRequest
+	UserListParams               = v1.ListUsersRequest
+	UploadCreateParams           = v1.CreateUploadRequest
+	UploadCompleteParams         = v1.CompleteUploadRequest
+	MultipartCreateParams        = v1.CreateMultipartUploadRequest
+	MultipartPartURLsParams      = v1.GetUploadPartUrlsRequest
+	MultipartCompleteParams      = v1.CompleteMultipartUploadRequest
+	MultipartAbortParams         = v1.AbortMultipartUploadRequest
+
+	WebhookEndpointCreateParams = v1.CreateWebhookEndpointRequest
+	WebhookEndpointUpdateParams = v1.UpdateWebhookEndpointRequest
+	WebhookEndpointListParams   = v1.ListWebhookEndpointsRequest
+	WebhookDeliveryListParams   = v1.ListWebhookDeliveriesRequest
+	EventListParams             = v1.ListEventsRequest
 )
 
 // ---------- Pagination wire types ----------
@@ -190,6 +202,9 @@ type (
 
 	VideoStatus     = v1.VideoStatus
 	VideoVisibility = v1.VideoVisibility
+
+	MembershipStatus = v1.MembershipStatus
+	UserStatus       = v1.UserStatus
 )
 
 // JobStatus values.
@@ -445,4 +460,20 @@ const (
 	VideoVisibilityPublic   = v1.VideoVisibility_VIDEO_VISIBILITY_PUBLIC
 	VideoVisibilityUnlisted = v1.VideoVisibility_VIDEO_VISIBILITY_UNLISTED
 	VideoVisibilityPrivate  = v1.VideoVisibility_VIDEO_VISIBILITY_PRIVATE
+)
+
+// MembershipStatus values. Used to filter [MembershipListParams].Status.
+const (
+	MembershipStatusUnspecified = v1.MembershipStatus_MEMBERSHIP_STATUS_UNSPECIFIED
+	MembershipStatusActive      = v1.MembershipStatus_MEMBERSHIP_STATUS_ACTIVE
+	MembershipStatusInvited     = v1.MembershipStatus_MEMBERSHIP_STATUS_INVITED
+	MembershipStatusSuspended   = v1.MembershipStatus_MEMBERSHIP_STATUS_SUSPENDED
+)
+
+// UserStatus values. Used to filter [UserListParams].Status.
+const (
+	UserStatusUnspecified = v1.UserStatus_USER_STATUS_UNSPECIFIED
+	UserStatusActive      = v1.UserStatus_USER_STATUS_ACTIVE
+	UserStatusSuspended   = v1.UserStatus_USER_STATUS_SUSPENDED
+	UserStatusDeleted     = v1.UserStatus_USER_STATUS_DELETED
 )

@@ -2173,7 +2173,8 @@ type CreateJobRequest struct {
 	OutputOriginId *string `protobuf:"bytes,11,opt,name=output_origin_id,json=outputOriginId,proto3,oneof" json:"output_origin_id,omitempty"`
 	// Output specifications (at least one required).
 	Outputs []*OutputSpec `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	// Job priority (affects processing order and cost).
+	// Job priority (affects worker selection and scheduling order; has no
+	// effect on cost — pricing is driven by codec/resolution/framerate/quality).
 	Priority JobPriority `protobuf:"varint,3,opt,name=priority,proto3,enum=transcodely.v1.JobPriority" json:"priority,omitempty"`
 	// Optional webhook URL for status notifications.
 	WebhookUrl *string `protobuf:"bytes,4,opt,name=webhook_url,json=webhookUrl,proto3,oneof" json:"webhook_url,omitempty"`

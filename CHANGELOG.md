@@ -4,6 +4,17 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.0](https://github.com/transcodely/transcodely-go/compare/v0.2.0...v0.3.0) (2026-07-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* App.webhook, CreateAppRequest.webhook, and UpdateAppRequest.webhook (WebhookConfig / CreateWebhookConfig / UpdateWebhookConfig) are removed. App-level webhook configuration is superseded by the WebhookService endpoints API (WebhookEndpoint).
+
+### Features
+
+* sync protos — explicit app scoping; remove legacy app webhook config ([#15](https://github.com/transcodely/transcodely-go/issues/15)) ([0e5527f](https://github.com/transcodely/transcodely-go/commit/0e5527f9b2fc042a27ee3c76dda3634b955f0c6b))
+
 ## [0.2.0](https://github.com/transcodely/transcodely-go/compare/v0.1.3...v0.2.0) (2026-07-12)
 
 

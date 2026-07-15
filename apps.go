@@ -90,9 +90,9 @@ func (a *Apps) EnableHosting(ctx context.Context, id string) (*App, error) {
 }
 
 // UpdateHostingConfig mutates the managed-hosting configuration of an app.
-func (a *Apps) UpdateHostingConfig(ctx context.Context, params *v1.UpdateHostingConfigRequest) (*App, error) {
+func (a *Apps) UpdateHostingConfig(ctx context.Context, params *AppUpdateHostingConfigParams) (*App, error) {
 	if params == nil {
-		params = &v1.UpdateHostingConfigRequest{}
+		params = &AppUpdateHostingConfigParams{}
 	}
 	resp, err := a.client.UpdateHostingConfig(ctx, connect.NewRequest(params))
 	if err != nil {

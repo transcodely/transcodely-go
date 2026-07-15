@@ -47,9 +47,6 @@ type (
 	ValidationResult = v1.ValidationResult
 
 	App                 = v1.App
-	WebhookConfig       = v1.WebhookConfig
-	CreateWebhookConfig = v1.CreateWebhookConfig
-	UpdateWebhookConfig = v1.UpdateWebhookConfig
 	HostingConfig       = v1.HostingConfig
 	AutoProfileDefaults = v1.AutoProfileDefaults
 

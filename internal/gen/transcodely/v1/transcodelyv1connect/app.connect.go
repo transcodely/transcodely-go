@@ -59,7 +59,7 @@ type AppServiceClient interface {
 	Create(context.Context, *connect.Request[v1.CreateAppRequest]) (*connect.Response[v1.CreateAppResponse], error)
 	// Get an app by ID.
 	Get(context.Context, *connect.Request[v1.GetAppRequest]) (*connect.Response[v1.GetAppResponse], error)
-	// Update an app's name, description, and webhook configuration.
+	// Update an app's name and description.
 	Update(context.Context, *connect.Request[v1.UpdateAppRequest]) (*connect.Response[v1.UpdateAppResponse], error)
 	// List apps within an organization.
 	List(context.Context, *connect.Request[v1.ListAppsRequest]) (*connect.Response[v1.ListAppsResponse], error)
@@ -184,7 +184,7 @@ type AppServiceHandler interface {
 	Create(context.Context, *connect.Request[v1.CreateAppRequest]) (*connect.Response[v1.CreateAppResponse], error)
 	// Get an app by ID.
 	Get(context.Context, *connect.Request[v1.GetAppRequest]) (*connect.Response[v1.GetAppResponse], error)
-	// Update an app's name, description, and webhook configuration.
+	// Update an app's name and description.
 	Update(context.Context, *connect.Request[v1.UpdateAppRequest]) (*connect.Response[v1.UpdateAppResponse], error)
 	// List apps within an organization.
 	List(context.Context, *connect.Request[v1.ListAppsRequest]) (*connect.Response[v1.ListAppsResponse], error)

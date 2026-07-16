@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/transcodely/transcodely-go"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
@@ -17,6 +18,9 @@ func main() {
 
 	job, err := client.Jobs.Create(context.Background(), &transcodely.JobCreateParams{
 		InputUrl: "https://download.samplelib.com/mp4/sample-30s.mp4",
+		// Write outputs to Transcodely-managed storage. Drop Managed and set
+		// OutputOriginId to write to your own configured origin.
+		Managed: proto.Bool(true),
 		Outputs: []*transcodely.OutputSpec{{
 			Type: transcodely.OutputFormatHLS,
 			Video: []*transcodely.VideoVariant{

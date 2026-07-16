@@ -29,6 +29,7 @@ type (
 	UploadPart     = v1.UploadPart
 	CompletedPart  = v1.CompletedPart
 	UsageSummary   = v1.UsageSummary
+	DailyUsage     = v1.DailyUsage
 
 	Preset        = v1.Preset
 	PresetVariant = v1.PresetVariant
@@ -62,10 +63,11 @@ type (
 	HealthCheckResponse = v1.HealthCheckResponse
 	ComponentHealth     = v1.ComponentHealth
 
-	WebhookEndpoint = v1.WebhookEndpoint
-	WebhookDelivery = v1.WebhookDelivery
-	EndpointHealth  = v1.GetEndpointHealthResponse
-	HealthBucket    = v1.HealthBucket
+	WebhookEndpoint       = v1.WebhookEndpoint
+	WebhookDelivery       = v1.WebhookDelivery
+	EndpointHealth        = v1.GetEndpointHealthResponse
+	EndpointHealthSummary = v1.EndpointHealthSummary
+	HealthBucket          = v1.HealthBucket
 
 	ErrorDetails        = v1.ErrorDetails
 	ProtoFieldViolation = v1.FieldViolation

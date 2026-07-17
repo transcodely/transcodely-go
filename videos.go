@@ -188,6 +188,35 @@ func (v *Videos) GetUsage(ctx context.Context, billingMonth string) (*UsageSumma
 	return resp.Msg.GetUsage(), nil
 }
 
+// GetStats returns playback analytics for a single video: plays, watch time,
+// and unique viewers aggregated per UTC day, plus totals across the requested
+// date range. The full response is returned unwrapped because it carries both
+// the per-day rows and the range totals. Stats come from a best-effort
+// playback beacon rolled up hourly, so recent activity may lag by up to an
+// hour.
+func (v *Videos) GetStats(ctx context.Context, params *VideoGetStatsParams) (*v1.GetStatsResponse, error) {
+	if params == nil {
+		params = &VideoGetStatsParams{}
+	}
+	resp, err := v.client.GetStats(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg, nil
+}
+
+// ListTopVideos returns an app's top videos ranked by plays over a date range.
+func (v *Videos) ListTopVideos(ctx context.Context, params *VideoListTopVideosParams) (*v1.ListTopVideosResponse, error) {
+	if params == nil {
+		params = &VideoListTopVideosParams{}
+	}
+	resp, err := v.client.ListTopVideos(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg, nil
+}
+
 type videoWatchAdapter struct {
 	stream *connect.ServerStreamForClient[v1.WatchVideoResponse]
 }

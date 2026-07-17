@@ -69,6 +69,11 @@ const (
 	VideoServiceWatchProcedure = "/transcodely.v1.VideoService/Watch"
 	// VideoServiceGetUsageProcedure is the fully-qualified name of the VideoService's GetUsage RPC.
 	VideoServiceGetUsageProcedure = "/transcodely.v1.VideoService/GetUsage"
+	// VideoServiceGetStatsProcedure is the fully-qualified name of the VideoService's GetStats RPC.
+	VideoServiceGetStatsProcedure = "/transcodely.v1.VideoService/GetStats"
+	// VideoServiceListTopVideosProcedure is the fully-qualified name of the VideoService's
+	// ListTopVideos RPC.
+	VideoServiceListTopVideosProcedure = "/transcodely.v1.VideoService/ListTopVideos"
 )
 
 // VideoServiceClient is a client for the transcodely.v1.VideoService service.
@@ -112,6 +117,13 @@ type VideoServiceClient interface {
 	Watch(context.Context, *connect.Request[v1.WatchVideoRequest]) (*connect.ServerStreamForClient[v1.WatchVideoResponse], error)
 	// Get usage summary for the current billing period or a specific month.
 	GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error)
+	// Get playback analytics for a single video: plays, watch time, and unique
+	// viewers aggregated per UTC day. Stats are collected from a lightweight,
+	// best-effort playback beacon and rolled up hourly, so recent activity may
+	// lag by up to an hour.
+	GetStats(context.Context, *connect.Request[v1.GetStatsRequest]) (*connect.Response[v1.GetStatsResponse], error)
+	// List an app's top videos ranked by plays over a date range.
+	ListTopVideos(context.Context, *connect.Request[v1.ListTopVideosRequest]) (*connect.Response[v1.ListTopVideosResponse], error)
 }
 
 // NewVideoServiceClient constructs a client for the transcodely.v1.VideoService service. By
@@ -203,6 +215,18 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(videoServiceMethods.ByName("GetUsage")),
 			connect.WithClientOptions(opts...),
 		),
+		getStats: connect.NewClient[v1.GetStatsRequest, v1.GetStatsResponse](
+			httpClient,
+			baseURL+VideoServiceGetStatsProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("GetStats")),
+			connect.WithClientOptions(opts...),
+		),
+		listTopVideos: connect.NewClient[v1.ListTopVideosRequest, v1.ListTopVideosResponse](
+			httpClient,
+			baseURL+VideoServiceListTopVideosProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("ListTopVideos")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -221,6 +245,8 @@ type videoServiceClient struct {
 	delete                  *connect.Client[v1.DeleteVideoRequest, v1.DeleteVideoResponse]
 	watch                   *connect.Client[v1.WatchVideoRequest, v1.WatchVideoResponse]
 	getUsage                *connect.Client[v1.GetUsageRequest, v1.GetUsageResponse]
+	getStats                *connect.Client[v1.GetStatsRequest, v1.GetStatsResponse]
+	listTopVideos           *connect.Client[v1.ListTopVideosRequest, v1.ListTopVideosResponse]
 }
 
 // CreateUpload calls transcodely.v1.VideoService.CreateUpload.
@@ -288,6 +314,16 @@ func (c *videoServiceClient) GetUsage(ctx context.Context, req *connect.Request[
 	return c.getUsage.CallUnary(ctx, req)
 }
 
+// GetStats calls transcodely.v1.VideoService.GetStats.
+func (c *videoServiceClient) GetStats(ctx context.Context, req *connect.Request[v1.GetStatsRequest]) (*connect.Response[v1.GetStatsResponse], error) {
+	return c.getStats.CallUnary(ctx, req)
+}
+
+// ListTopVideos calls transcodely.v1.VideoService.ListTopVideos.
+func (c *videoServiceClient) ListTopVideos(ctx context.Context, req *connect.Request[v1.ListTopVideosRequest]) (*connect.Response[v1.ListTopVideosResponse], error) {
+	return c.listTopVideos.CallUnary(ctx, req)
+}
+
 // VideoServiceHandler is an implementation of the transcodely.v1.VideoService service.
 type VideoServiceHandler interface {
 	// Create a presigned upload URL for direct browser/client upload.
@@ -329,6 +365,13 @@ type VideoServiceHandler interface {
 	Watch(context.Context, *connect.Request[v1.WatchVideoRequest], *connect.ServerStream[v1.WatchVideoResponse]) error
 	// Get usage summary for the current billing period or a specific month.
 	GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error)
+	// Get playback analytics for a single video: plays, watch time, and unique
+	// viewers aggregated per UTC day. Stats are collected from a lightweight,
+	// best-effort playback beacon and rolled up hourly, so recent activity may
+	// lag by up to an hour.
+	GetStats(context.Context, *connect.Request[v1.GetStatsRequest]) (*connect.Response[v1.GetStatsResponse], error)
+	// List an app's top videos ranked by plays over a date range.
+	ListTopVideos(context.Context, *connect.Request[v1.ListTopVideosRequest]) (*connect.Response[v1.ListTopVideosResponse], error)
 }
 
 // NewVideoServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -416,6 +459,18 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(videoServiceMethods.ByName("GetUsage")),
 		connect.WithHandlerOptions(opts...),
 	)
+	videoServiceGetStatsHandler := connect.NewUnaryHandler(
+		VideoServiceGetStatsProcedure,
+		svc.GetStats,
+		connect.WithSchema(videoServiceMethods.ByName("GetStats")),
+		connect.WithHandlerOptions(opts...),
+	)
+	videoServiceListTopVideosHandler := connect.NewUnaryHandler(
+		VideoServiceListTopVideosProcedure,
+		svc.ListTopVideos,
+		connect.WithSchema(videoServiceMethods.ByName("ListTopVideos")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.VideoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VideoServiceCreateUploadProcedure:
@@ -444,6 +499,10 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceWatchHandler.ServeHTTP(w, r)
 		case VideoServiceGetUsageProcedure:
 			videoServiceGetUsageHandler.ServeHTTP(w, r)
+		case VideoServiceGetStatsProcedure:
+			videoServiceGetStatsHandler.ServeHTTP(w, r)
+		case VideoServiceListTopVideosProcedure:
+			videoServiceListTopVideosHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -503,4 +562,12 @@ func (UnimplementedVideoServiceHandler) Watch(context.Context, *connect.Request[
 
 func (UnimplementedVideoServiceHandler) GetUsage(context.Context, *connect.Request[v1.GetUsageRequest]) (*connect.Response[v1.GetUsageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GetUsage is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) GetStats(context.Context, *connect.Request[v1.GetStatsRequest]) (*connect.Response[v1.GetStatsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GetStats is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) ListTopVideos(context.Context, *connect.Request[v1.ListTopVideosRequest]) (*connect.Response[v1.ListTopVideosResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.ListTopVideos is not implemented"))
 }

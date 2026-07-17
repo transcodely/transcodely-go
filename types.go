@@ -120,6 +120,8 @@ type (
 	JobListParams                = v1.ListJobsRequest
 	VideoListParams              = v1.ListVideosRequest
 	VideoUpdateParams            = v1.UpdateVideoRequest
+	VideoGetStatsParams          = v1.GetStatsRequest
+	VideoListTopVideosParams     = v1.ListTopVideosRequest
 	PresetCreateParams           = v1.CreatePresetRequest
 	PresetUpdateParams           = v1.UpdatePresetRequest
 	PresetListParams             = v1.ListPresetsRequest

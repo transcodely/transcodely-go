@@ -42,6 +42,9 @@ const (
 	// VideoServiceCompleteUploadProcedure is the fully-qualified name of the VideoService's
 	// CompleteUpload RPC.
 	VideoServiceCompleteUploadProcedure = "/transcodely.v1.VideoService/CompleteUpload"
+	// VideoServiceCreateFromUrlProcedure is the fully-qualified name of the VideoService's
+	// CreateFromUrl RPC.
+	VideoServiceCreateFromUrlProcedure = "/transcodely.v1.VideoService/CreateFromUrl"
 	// VideoServiceCreateMultipartUploadProcedure is the fully-qualified name of the VideoService's
 	// CreateMultipartUpload RPC.
 	VideoServiceCreateMultipartUploadProcedure = "/transcodely.v1.VideoService/CreateMultipartUpload"
@@ -76,6 +79,13 @@ type VideoServiceClient interface {
 	// Signal that a client-side upload has completed.
 	// Triggers processing (probe + transcode) for the uploaded file.
 	CompleteUpload(context.Context, *connect.Request[v1.CompleteUploadRequest]) (*connect.Response[v1.CompleteUploadResponse], error)
+	// Create a hosted video from a publicly-reachable http(s) URL in one call.
+	// The API fetches nothing itself: it records the video in "processing" and
+	// hands the URL to the transcoding pipeline, which downloads it at run time.
+	// Returns a Video in "processing" status (no upload step). Playback/embed
+	// URLs populate once the video reaches "ready" (subscribe to video.ready or
+	// Watch). The app must have managed hosting enabled.
+	CreateFromUrl(context.Context, *connect.Request[v1.CreateFromUrlRequest]) (*connect.Response[v1.CreateFromUrlResponse], error)
 	// Create a multipart upload for large files (up to 5GB).
 	// Returns a Video in "uploading" status, an S3 upload_id, and presigned
 	// URLs for the first batch of parts (up to 50).
@@ -125,6 +135,12 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+VideoServiceCompleteUploadProcedure,
 			connect.WithSchema(videoServiceMethods.ByName("CompleteUpload")),
+			connect.WithClientOptions(opts...),
+		),
+		createFromUrl: connect.NewClient[v1.CreateFromUrlRequest, v1.CreateFromUrlResponse](
+			httpClient,
+			baseURL+VideoServiceCreateFromUrlProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("CreateFromUrl")),
 			connect.WithClientOptions(opts...),
 		),
 		createMultipartUpload: connect.NewClient[v1.CreateMultipartUploadRequest, v1.CreateMultipartUploadResponse](
@@ -194,6 +210,7 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 type videoServiceClient struct {
 	createUpload            *connect.Client[v1.CreateUploadRequest, v1.CreateUploadResponse]
 	completeUpload          *connect.Client[v1.CompleteUploadRequest, v1.CompleteUploadResponse]
+	createFromUrl           *connect.Client[v1.CreateFromUrlRequest, v1.CreateFromUrlResponse]
 	createMultipartUpload   *connect.Client[v1.CreateMultipartUploadRequest, v1.CreateMultipartUploadResponse]
 	getUploadPartUrls       *connect.Client[v1.GetUploadPartUrlsRequest, v1.GetUploadPartUrlsResponse]
 	completeMultipartUpload *connect.Client[v1.CompleteMultipartUploadRequest, v1.CompleteMultipartUploadResponse]
@@ -214,6 +231,11 @@ func (c *videoServiceClient) CreateUpload(ctx context.Context, req *connect.Requ
 // CompleteUpload calls transcodely.v1.VideoService.CompleteUpload.
 func (c *videoServiceClient) CompleteUpload(ctx context.Context, req *connect.Request[v1.CompleteUploadRequest]) (*connect.Response[v1.CompleteUploadResponse], error) {
 	return c.completeUpload.CallUnary(ctx, req)
+}
+
+// CreateFromUrl calls transcodely.v1.VideoService.CreateFromUrl.
+func (c *videoServiceClient) CreateFromUrl(ctx context.Context, req *connect.Request[v1.CreateFromUrlRequest]) (*connect.Response[v1.CreateFromUrlResponse], error) {
+	return c.createFromUrl.CallUnary(ctx, req)
 }
 
 // CreateMultipartUpload calls transcodely.v1.VideoService.CreateMultipartUpload.
@@ -274,6 +296,13 @@ type VideoServiceHandler interface {
 	// Signal that a client-side upload has completed.
 	// Triggers processing (probe + transcode) for the uploaded file.
 	CompleteUpload(context.Context, *connect.Request[v1.CompleteUploadRequest]) (*connect.Response[v1.CompleteUploadResponse], error)
+	// Create a hosted video from a publicly-reachable http(s) URL in one call.
+	// The API fetches nothing itself: it records the video in "processing" and
+	// hands the URL to the transcoding pipeline, which downloads it at run time.
+	// Returns a Video in "processing" status (no upload step). Playback/embed
+	// URLs populate once the video reaches "ready" (subscribe to video.ready or
+	// Watch). The app must have managed hosting enabled.
+	CreateFromUrl(context.Context, *connect.Request[v1.CreateFromUrlRequest]) (*connect.Response[v1.CreateFromUrlResponse], error)
 	// Create a multipart upload for large files (up to 5GB).
 	// Returns a Video in "uploading" status, an S3 upload_id, and presigned
 	// URLs for the first batch of parts (up to 50).
@@ -319,6 +348,12 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		VideoServiceCompleteUploadProcedure,
 		svc.CompleteUpload,
 		connect.WithSchema(videoServiceMethods.ByName("CompleteUpload")),
+		connect.WithHandlerOptions(opts...),
+	)
+	videoServiceCreateFromUrlHandler := connect.NewUnaryHandler(
+		VideoServiceCreateFromUrlProcedure,
+		svc.CreateFromUrl,
+		connect.WithSchema(videoServiceMethods.ByName("CreateFromUrl")),
 		connect.WithHandlerOptions(opts...),
 	)
 	videoServiceCreateMultipartUploadHandler := connect.NewUnaryHandler(
@@ -387,6 +422,8 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceCreateUploadHandler.ServeHTTP(w, r)
 		case VideoServiceCompleteUploadProcedure:
 			videoServiceCompleteUploadHandler.ServeHTTP(w, r)
+		case VideoServiceCreateFromUrlProcedure:
+			videoServiceCreateFromUrlHandler.ServeHTTP(w, r)
 		case VideoServiceCreateMultipartUploadProcedure:
 			videoServiceCreateMultipartUploadHandler.ServeHTTP(w, r)
 		case VideoServiceGetUploadPartUrlsProcedure:
@@ -422,6 +459,10 @@ func (UnimplementedVideoServiceHandler) CreateUpload(context.Context, *connect.R
 
 func (UnimplementedVideoServiceHandler) CompleteUpload(context.Context, *connect.Request[v1.CompleteUploadRequest]) (*connect.Response[v1.CompleteUploadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.CompleteUpload is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) CreateFromUrl(context.Context, *connect.Request[v1.CreateFromUrlRequest]) (*connect.Response[v1.CreateFromUrlResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.CreateFromUrl is not implemented"))
 }
 
 func (UnimplementedVideoServiceHandler) CreateMultipartUpload(context.Context, *connect.Request[v1.CreateMultipartUploadRequest]) (*connect.Response[v1.CreateMultipartUploadResponse], error) {

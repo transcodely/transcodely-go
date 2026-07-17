@@ -49,6 +49,21 @@ func (v *Videos) CompleteUpload(ctx context.Context, params *UploadCompleteParam
 	return resp.Msg.GetVideo(), nil
 }
 
+// CreateFromUrl creates a hosted video from a publicly-reachable http(s) URL
+// in a single call, with no presigned-upload round-trip. The video is
+// returned in `processing` status; playback/embed URLs populate once it
+// reaches `ready` (subscribe to the video.ready webhook event or use Watch).
+func (v *Videos) CreateFromUrl(ctx context.Context, params *VideoCreateFromUrlParams) (*Video, error) {
+	if params == nil {
+		params = &VideoCreateFromUrlParams{}
+	}
+	resp, err := v.client.CreateFromUrl(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetVideo(), nil
+}
+
 // CreateMultipartUpload begins a multipart upload session.
 func (v *Videos) CreateMultipartUpload(ctx context.Context, params *MultipartCreateParams) (*v1.CreateMultipartUploadResponse, error) {
 	if params == nil {

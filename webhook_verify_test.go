@@ -102,6 +102,8 @@ func TestConstructEvent_TypedAccessorsPerGroup(t *testing.T) {
 			return ok && o.GetOutputUrl() == "https://cdn/x.m3u8"
 		}},
 		{"video.uploaded", `{"id":"vid_1","object":"video"}`, func(e *WebhookEvent) bool { v, ok := e.Video(); return ok && v.GetId() == "vid_1" }},
+		{"video.ready", `{"id":"vid_1","object":"video"}`, func(e *WebhookEvent) bool { v, ok := e.Video(); return ok && v.GetId() == "vid_1" }},
+		{"video.failed", `{"id":"vid_1","object":"video"}`, func(e *WebhookEvent) bool { v, ok := e.Video(); return ok && v.GetId() == "vid_1" }},
 		{"app.updated", `{"id":"app_1","object":"app"}`, func(e *WebhookEvent) bool { a, ok := e.App(); return ok && a.GetId() == "app_1" }},
 	}
 	ts := int64(1716480293)

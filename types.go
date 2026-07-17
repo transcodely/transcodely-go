@@ -140,6 +140,7 @@ type (
 	UserListParams               = v1.ListUsersRequest
 	UploadCreateParams           = v1.CreateUploadRequest
 	UploadCompleteParams         = v1.CompleteUploadRequest
+	VideoCreateFromUrlParams     = v1.CreateFromUrlRequest
 	MultipartCreateParams        = v1.CreateMultipartUploadRequest
 	MultipartPartURLsParams      = v1.GetUploadPartUrlsRequest
 	MultipartCompleteParams      = v1.CompleteMultipartUploadRequest

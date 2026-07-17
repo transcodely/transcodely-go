@@ -24,8 +24,8 @@ func TestNew_WiresWebhookNamespaces(t *testing.T) {
 }
 
 func TestWebhookEventCatalog(t *testing.T) {
-	if len(WebhookEventTypes) != 13 {
-		t.Fatalf("WebhookEventTypes has %d entries, want 13", len(WebhookEventTypes))
+	if len(WebhookEventTypes) != 15 {
+		t.Fatalf("WebhookEventTypes has %d entries, want 15", len(WebhookEventTypes))
 	}
 	for _, et := range WebhookEventTypes {
 		if et == "job.updated" {
@@ -54,6 +54,8 @@ func TestResourceForEventType(t *testing.T) {
 		{"output.ready", "*JobOutput"},
 		{"output.progress", "*JobOutput"},
 		{"video.uploaded", "*Video"},
+		{"video.ready", "*Video"},
+		{"video.failed", "*Video"},
 		{"app.updated", "*App"},
 		{"subscription.created", ""},
 		{"", ""},

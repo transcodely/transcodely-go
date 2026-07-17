@@ -33,7 +33,7 @@ const DefaultWebhookTolerance = 5 * time.Minute
 // a plain string; the typed constants below cover the catalog the API emits.
 type EventType string
 
-// The 13 event types the platform emits. Mirrors the API's
+// The 15 event types the platform emits. Mirrors the API's
 // domain.WebhookEventTypes(). The "*" wildcard is a subscription value only and
 // is intentionally absent — it is never the type of a delivered event. Event.Type
 // is a plain string so an older SDK still decodes a type the API adds later.
@@ -48,6 +48,8 @@ const (
 	EventTypeOutputFailed   EventType = "output.failed"
 	EventTypeOutputProgress EventType = "output.progress"
 	EventTypeVideoUploaded  EventType = "video.uploaded"
+	EventTypeVideoReady     EventType = "video.ready"
+	EventTypeVideoFailed    EventType = "video.failed"
 	EventTypeVideoDeleted   EventType = "video.deleted"
 	EventTypeAppCreated     EventType = "app.created"
 	EventTypeAppUpdated     EventType = "app.updated"
@@ -66,6 +68,8 @@ var WebhookEventTypes = []EventType{
 	EventTypeOutputFailed,
 	EventTypeOutputProgress,
 	EventTypeVideoUploaded,
+	EventTypeVideoReady,
+	EventTypeVideoFailed,
 	EventTypeVideoDeleted,
 	EventTypeAppCreated,
 	EventTypeAppUpdated,

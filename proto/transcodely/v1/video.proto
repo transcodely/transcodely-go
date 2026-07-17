@@ -17,6 +17,14 @@ service VideoService {
   // Triggers processing (probe + transcode) for the uploaded file.
   rpc CompleteUpload(CompleteUploadRequest) returns (CompleteUploadResponse);
 
+  // Create a hosted video from a publicly-reachable http(s) URL in one call.
+  // The API fetches nothing itself: it records the video in "processing" and
+  // hands the URL to the transcoding pipeline, which downloads it at run time.
+  // Returns a Video in "processing" status (no upload step). Playback/embed
+  // URLs populate once the video reaches "ready" (subscribe to video.ready or
+  // Watch). The app must have managed hosting enabled.
+  rpc CreateFromUrl(CreateFromUrlRequest) returns (CreateFromUrlResponse);
+
   // Create a multipart upload for large files (up to 5GB).
   // Returns a Video in "uploading" status, an S3 upload_id, and presigned
   // URLs for the first batch of parts (up to 50).
@@ -109,7 +117,8 @@ message Video {
   // App that owns this video.
   string app_id = 2;
 
-  // How the video was created: "upload" (direct upload) or "job" (from transcoding job).
+  // How the video was created: "upload" (direct upload or CreateFromUrl ingest)
+  // or "job" (from a managed transcoding job created via JobService.Create).
   string source = 3;
 
   // Current lifecycle status.
@@ -271,6 +280,62 @@ message CompleteUploadRequest {
 // Response from completing an upload.
 message CompleteUploadResponse {
   // The video (status transitions to "processing").
+  Video video = 1;
+}
+
+// Request to create a hosted video from a remote URL (one-call ingest).
+message CreateFromUrlRequest {
+  // App to create the video under. Required. The app must have managed hosting
+  // enabled (AppService.EnableHosting) or the call fails with FailedPrecondition.
+  string app_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^app_[a-zA-Z0-9_-]+$"
+  ];
+
+  // Publicly-reachable source URL to ingest. Must be http:// or https:// —
+  // storage-origin schemes (gs://, s3://) are not accepted here; use an origin
+  // and JobService.Create for those. The URL is fetched by the worker at
+  // transcode time (the API never fetches it); private/internal addresses are
+  // rejected up front and again, authoritatively, at fetch time (SSRF defense).
+  string url = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 2048,
+    (buf.validate.field).string.pattern = "^https?://.*$"
+  ];
+
+  // Optional title for the video.
+  optional string title = 3 [
+    (buf.validate.field).string = {max_len: 255}
+  ];
+
+  // Optional description.
+  optional string description = 4 [
+    (buf.validate.field).string = {max_len: 2000}
+  ];
+
+  // Optional tags for categorization (max 20).
+  repeated string tags = 5 [
+    (buf.validate.field).repeated = {max_items: 20}
+  ];
+
+  // Visibility setting. Defaults to "unlisted" if not specified.
+  optional string visibility = 6;
+
+  // Optional preset reference for the auto-transcode job.
+  // Accepts either a preset ID (e.g., "pst_abc123") or slug (e.g., "gaming_1080p_60_standard").
+  // When provided, the preset's settings drive the encoding instead of the
+  // app's default auto-profile ABR ladder.
+  optional string preset = 7 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// Response from creating a video from a URL.
+message CreateFromUrlResponse {
+  // The created video (status: "processing"). No video.uploaded event fires for
+  // URL ingest (no bytes are uploaded); the job lifecycle plus video.ready /
+  // video.failed cover the outcome.
   Video video = 1;
 }
 

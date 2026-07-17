@@ -83,6 +83,12 @@ type (
 
 	HDRConfig = v1.HDRConfig
 
+	// Content-aware encoding is currently unavailable. The API rejects any job
+	// create request that sets content_aware (per-title or auto-ABR) on an
+	// output with InvalidArgument — rule "parameter_unsupported" on
+	// outputs[i].content_aware — until worker support ships. These types stay
+	// exported for forward compatibility. See
+	// https://github.com/transcodely/api/issues/167.
 	ContentAwareConfig = v1.ContentAwareConfig
 	AutoABRConfig      = v1.AutoABRConfig
 	ContentAnalysis    = v1.ContentAnalysis

@@ -105,9 +105,11 @@ const (
 	VideoVisibility_VIDEO_VISIBILITY_PUBLIC VideoVisibility = 1
 	// Accessible only via direct link (not listed in public indexes).
 	VideoVisibility_VIDEO_VISIBILITY_UNLISTED VideoVisibility = 2
-	// Not playable via the public player or embed. Playback and embed URLs are
-	// not issued for private videos (authenticated playback is not yet
-	// available).
+	// Not playable via the public player or embed: the player page returns 404 and
+	// embed_url/embed_code are never populated. Authenticated API reads
+	// (VideoService.Get/List/Watch) for the owning app DO return signed, expiring
+	// playback_url/poster_url once the video is "ready", so the owner can watch a
+	// private video via the API even though it stays off the public player.
 	VideoVisibility_VIDEO_VISIBILITY_PRIVATE VideoVisibility = 3
 )
 
@@ -181,19 +183,25 @@ type Video struct {
 	// Either a preset ID (e.g., "pst_abc123") or slug (e.g., "gaming_1080p_60_standard").
 	// Set via CreateUpload; if absent the app's default auto-profile is used.
 	Preset *string `protobuf:"bytes,16,opt,name=preset,proto3,oneof" json:"preset,omitempty"`
-	// Playback surface — all computed per-request and never stored. Only
-	// populated for playable videos (status "ready" and not private); absent
-	// otherwise. Playback URLs are currently unsigned: CDN token signing is not
-	// yet enabled, so access control comes from the managed-storage bucket policy
-	// rather than tokens.
+	// Playback surface — all computed per-request and never stored. Populated for
+	// "ready" videos of any visibility (public, unlisted, and — on authenticated
+	// owner reads — private); absent otherwise. On apps with CDN token auth
+	// enabled the URL is signed and expiring (HMAC token + expiry query params);
+	// it is re-issued on every read, so clients should use the value from the
+	// latest response rather than caching it. On apps not yet migrated to token
+	// auth the URL is unsigned and access control comes from the managed-storage
+	// bucket policy; unsigned URLs are never issued for private videos.
 	PlaybackUrl *string `protobuf:"bytes,20,opt,name=playback_url,json=playbackUrl,proto3,oneof" json:"playback_url,omitempty"`
-	EmbedUrl    *string `protobuf:"bytes,21,opt,name=embed_url,json=embedUrl,proto3,oneof" json:"embed_url,omitempty"`
+	// Public embed surface — populated only for playable videos (status "ready"
+	// and NOT private). Always absent for private videos.
+	EmbedUrl *string `protobuf:"bytes,21,opt,name=embed_url,json=embedUrl,proto3,oneof" json:"embed_url,omitempty"`
 	// Ready-to-paste responsive HTML embed snippet: a 16:9 aspect-ratio wrapper
 	// div containing a lazy-loaded, borderless <iframe src=embed_url> that fills
 	// its container (no fixed width/height). Same population rules as embed_url.
 	EmbedCode *string `protobuf:"bytes,22,opt,name=embed_code,json=embedCode,proto3,oneof" json:"embed_code,omitempty"`
-	// Poster image URL. Worker-side poster generation is not emitted yet, so this
-	// may reference an object that does not exist until poster support lands.
+	// Poster image URL, resolved from the worker-reported poster key. Signed and
+	// expiring on token-auth apps, unsigned otherwise — same rules and per-request
+	// re-issuance as playback_url. Absent when the video has no generated poster.
 	PosterUrl       *string  `protobuf:"bytes,23,opt,name=poster_url,json=posterUrl,proto3,oneof" json:"poster_url,omitempty"`
 	DurationSeconds *float64 `protobuf:"fixed64,24,opt,name=duration_seconds,json=durationSeconds,proto3,oneof" json:"duration_seconds,omitempty"`
 	// Renditions available for playback.

@@ -23,6 +23,7 @@ type (
 
 	PricingSnapshot        = v1.PricingSnapshot
 	VariantPricingSnapshot = v1.VariantPricingSnapshot
+	JobFee                 = v1.JobFee
 
 	Video          = v1.Video
 	VideoRendition = v1.VideoRendition
@@ -93,8 +94,9 @@ type (
 	AutoABRConfig      = v1.AutoABRConfig
 	ContentAnalysis    = v1.ContentAnalysis
 
-	SubtitleTrack = v1.SubtitleTrack
-	BurnInStyle   = v1.BurnInStyle
+	SubtitleTrack  = v1.SubtitleTrack
+	SubtitleResult = v1.SubtitleResult
+	BurnInStyle    = v1.BurnInStyle
 
 	ThumbnailSpec   = v1.ThumbnailSpec
 	ThumbnailResult = v1.ThumbnailResult
@@ -382,6 +384,7 @@ const (
 	SubtitleOpConvert     = v1.SubtitleOperation_SUBTITLE_OPERATION_CONVERT
 	SubtitleOpBurnIn      = v1.SubtitleOperation_SUBTITLE_OPERATION_BURN_IN
 	SubtitleOpExtract     = v1.SubtitleOperation_SUBTITLE_OPERATION_EXTRACT
+	SubtitleOpGenerate    = v1.SubtitleOperation_SUBTITLE_OPERATION_GENERATE
 )
 
 // SubtitleFormat values.

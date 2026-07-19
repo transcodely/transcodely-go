@@ -104,6 +104,86 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+// TestMarshalGenerateCaptionsJob verifies the F5 AI-captions wire shape: a
+// captions-only output (no video variants, no output type) carrying a single
+// generate track with language "auto", sourced from a hosted video via
+// input_video_id. All three must serialize with snake_case keys and the
+// simplified lowercase enum ("generate").
+func TestMarshalGenerateCaptionsJob(t *testing.T) {
+	c := NewProtoJSONCodec()
+	videoID := "vid_a1b2c3d4e5f6g7"
+	lang := "auto"
+	req := &v1.CreateJobRequest{
+		InputVideoId: &videoID,
+		Outputs: []*v1.OutputSpec{{
+			// Captions-only: no video[] and no type — allowed by the relaxed
+			// CEL because every subtitle track is a generate operation.
+			SubtitleTracks: []*v1.SubtitleTrack{{
+				Operation: v1.SubtitleOperation_SUBTITLE_OPERATION_GENERATE,
+				Language:  &lang,
+			}},
+		}},
+	}
+	data, err := c.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	got := string(data)
+	for _, want := range []string{
+		`"input_video_id":"vid_a1b2c3d4e5f6g7"`,
+		`"subtitle_tracks":`,
+		`"operation":"generate"`,
+		`"language":"auto"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("payload missing %q\nfull payload: %s", want, got)
+		}
+	}
+	// input_video_id is the retro-caption source; input_url stays empty (the
+	// codec emits unpopulated fields, so it appears as "").
+	if strings.Contains(got, `"input_url":"http`) {
+		t.Errorf("captions-only retro-caption request should not set input_url\nfull payload: %s", got)
+	}
+}
+
+// TestRoundTripGenerateCaptionsJob ensures the generate track and input_video_id
+// survive a Marshal→Unmarshal cycle with their native enum/value intact.
+func TestRoundTripGenerateCaptionsJob(t *testing.T) {
+	c := NewProtoJSONCodec()
+	videoID := "vid_a1b2c3d4e5f6g7"
+	lang := "auto"
+	original := &v1.CreateJobRequest{
+		InputVideoId: &videoID,
+		Outputs: []*v1.OutputSpec{{
+			SubtitleTracks: []*v1.SubtitleTrack{{
+				Operation: v1.SubtitleOperation_SUBTITLE_OPERATION_GENERATE,
+				Language:  &lang,
+			}},
+		}},
+	}
+	data, err := c.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var decoded v1.CreateJobRequest
+	if err := c.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if decoded.GetInputVideoId() != videoID {
+		t.Errorf("input_video_id: got %q, want %q", decoded.GetInputVideoId(), videoID)
+	}
+	tracks := decoded.GetOutputs()[0].GetSubtitleTracks()
+	if len(tracks) != 1 {
+		t.Fatalf("subtitle_tracks: got %d, want 1", len(tracks))
+	}
+	if tracks[0].GetOperation() != v1.SubtitleOperation_SUBTITLE_OPERATION_GENERATE {
+		t.Errorf("operation: got %v, want GENERATE", tracks[0].GetOperation())
+	}
+	if tracks[0].GetLanguage() != "auto" {
+		t.Errorf("language: got %q, want %q", tracks[0].GetLanguage(), "auto")
+	}
+}
+
 func r2TestCredentials() *v1.S3Credentials {
 	return &v1.S3Credentials{
 		AccessKeyId:     "0123456789abcdef0123456789abcdef",

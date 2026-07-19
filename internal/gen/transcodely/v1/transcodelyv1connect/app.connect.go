@@ -51,6 +51,11 @@ const (
 	// AppServiceUpdateHostingConfigProcedure is the fully-qualified name of the AppService's
 	// UpdateHostingConfig RPC.
 	AppServiceUpdateHostingConfigProcedure = "/transcodely.v1.AppService/UpdateHostingConfig"
+	// AppServiceUpdateSpendLimitProcedure is the fully-qualified name of the AppService's
+	// UpdateSpendLimit RPC.
+	AppServiceUpdateSpendLimitProcedure = "/transcodely.v1.AppService/UpdateSpendLimit"
+	// AppServiceGetSpendProcedure is the fully-qualified name of the AppService's GetSpend RPC.
+	AppServiceGetSpendProcedure = "/transcodely.v1.AppService/GetSpend"
 )
 
 // AppServiceClient is a client for the transcodely.v1.AppService service.
@@ -74,6 +79,12 @@ type AppServiceClient interface {
 	// Merges provided fields into the existing hosting config.
 	// Returns failed_precondition if hosting is not enabled.
 	UpdateHostingConfig(context.Context, *connect.Request[v1.UpdateHostingConfigRequest]) (*connect.Response[v1.UpdateHostingConfigResponse], error)
+	// Set or clear an app's monthly spend limit for transcoding charges.
+	// Providing monthly_spend_limit_eur sets the cap (must be > 0); omitting it
+	// clears the cap and returns the app to unlimited. Returns the updated app.
+	UpdateSpendLimit(context.Context, *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error)
+	// Get an app's current-period transcoding spend against its limit.
+	GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error)
 }
 
 // NewAppServiceClient constructs a client for the transcodely.v1.AppService service. By default, it
@@ -129,6 +140,18 @@ func NewAppServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(appServiceMethods.ByName("UpdateHostingConfig")),
 			connect.WithClientOptions(opts...),
 		),
+		updateSpendLimit: connect.NewClient[v1.UpdateSpendLimitRequest, v1.UpdateSpendLimitResponse](
+			httpClient,
+			baseURL+AppServiceUpdateSpendLimitProcedure,
+			connect.WithSchema(appServiceMethods.ByName("UpdateSpendLimit")),
+			connect.WithClientOptions(opts...),
+		),
+		getSpend: connect.NewClient[v1.GetSpendRequest, v1.GetSpendResponse](
+			httpClient,
+			baseURL+AppServiceGetSpendProcedure,
+			connect.WithSchema(appServiceMethods.ByName("GetSpend")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -141,6 +164,8 @@ type appServiceClient struct {
 	archive             *connect.Client[v1.ArchiveAppRequest, v1.ArchiveAppResponse]
 	enableHosting       *connect.Client[v1.EnableHostingRequest, v1.EnableHostingResponse]
 	updateHostingConfig *connect.Client[v1.UpdateHostingConfigRequest, v1.UpdateHostingConfigResponse]
+	updateSpendLimit    *connect.Client[v1.UpdateSpendLimitRequest, v1.UpdateSpendLimitResponse]
+	getSpend            *connect.Client[v1.GetSpendRequest, v1.GetSpendResponse]
 }
 
 // Create calls transcodely.v1.AppService.Create.
@@ -178,6 +203,16 @@ func (c *appServiceClient) UpdateHostingConfig(ctx context.Context, req *connect
 	return c.updateHostingConfig.CallUnary(ctx, req)
 }
 
+// UpdateSpendLimit calls transcodely.v1.AppService.UpdateSpendLimit.
+func (c *appServiceClient) UpdateSpendLimit(ctx context.Context, req *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error) {
+	return c.updateSpendLimit.CallUnary(ctx, req)
+}
+
+// GetSpend calls transcodely.v1.AppService.GetSpend.
+func (c *appServiceClient) GetSpend(ctx context.Context, req *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error) {
+	return c.getSpend.CallUnary(ctx, req)
+}
+
 // AppServiceHandler is an implementation of the transcodely.v1.AppService service.
 type AppServiceHandler interface {
 	// Create a new app within an organization.
@@ -199,6 +234,12 @@ type AppServiceHandler interface {
 	// Merges provided fields into the existing hosting config.
 	// Returns failed_precondition if hosting is not enabled.
 	UpdateHostingConfig(context.Context, *connect.Request[v1.UpdateHostingConfigRequest]) (*connect.Response[v1.UpdateHostingConfigResponse], error)
+	// Set or clear an app's monthly spend limit for transcoding charges.
+	// Providing monthly_spend_limit_eur sets the cap (must be > 0); omitting it
+	// clears the cap and returns the app to unlimited. Returns the updated app.
+	UpdateSpendLimit(context.Context, *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error)
+	// Get an app's current-period transcoding spend against its limit.
+	GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error)
 }
 
 // NewAppServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -250,6 +291,18 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(appServiceMethods.ByName("UpdateHostingConfig")),
 		connect.WithHandlerOptions(opts...),
 	)
+	appServiceUpdateSpendLimitHandler := connect.NewUnaryHandler(
+		AppServiceUpdateSpendLimitProcedure,
+		svc.UpdateSpendLimit,
+		connect.WithSchema(appServiceMethods.ByName("UpdateSpendLimit")),
+		connect.WithHandlerOptions(opts...),
+	)
+	appServiceGetSpendHandler := connect.NewUnaryHandler(
+		AppServiceGetSpendProcedure,
+		svc.GetSpend,
+		connect.WithSchema(appServiceMethods.ByName("GetSpend")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.AppService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AppServiceCreateProcedure:
@@ -266,6 +319,10 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 			appServiceEnableHostingHandler.ServeHTTP(w, r)
 		case AppServiceUpdateHostingConfigProcedure:
 			appServiceUpdateHostingConfigHandler.ServeHTTP(w, r)
+		case AppServiceUpdateSpendLimitProcedure:
+			appServiceUpdateSpendLimitHandler.ServeHTTP(w, r)
+		case AppServiceGetSpendProcedure:
+			appServiceGetSpendHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -301,4 +358,12 @@ func (UnimplementedAppServiceHandler) EnableHosting(context.Context, *connect.Re
 
 func (UnimplementedAppServiceHandler) UpdateHostingConfig(context.Context, *connect.Request[v1.UpdateHostingConfigRequest]) (*connect.Response[v1.UpdateHostingConfigResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.AppService.UpdateHostingConfig is not implemented"))
+}
+
+func (UnimplementedAppServiceHandler) UpdateSpendLimit(context.Context, *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.AppService.UpdateSpendLimit is not implemented"))
+}
+
+func (UnimplementedAppServiceHandler) GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.AppService.GetSpend is not implemented"))
 }

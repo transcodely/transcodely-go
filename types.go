@@ -398,6 +398,7 @@ const (
 	ThumbnailModeInterval   = v1.ThumbnailMode_THUMBNAIL_MODE_INTERVAL
 	ThumbnailModeSprite     = v1.ThumbnailMode_THUMBNAIL_MODE_SPRITE
 	ThumbnailModeTimestamps = v1.ThumbnailMode_THUMBNAIL_MODE_TIMESTAMPS
+	ThumbnailModeAnimated   = v1.ThumbnailMode_THUMBNAIL_MODE_ANIMATED
 )
 
 // ThumbnailFormat values.

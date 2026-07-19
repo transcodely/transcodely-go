@@ -100,3 +100,49 @@ func (a *Apps) UpdateHostingConfig(ctx context.Context, params *AppUpdateHosting
 	}
 	return resp.Msg.GetApp(), nil
 }
+
+// UpdateSpendLimit sets or clears an app's monthly transcoding spend cap from an
+// explicit params struct. Set Params.MonthlySpendLimitEur (via proto.Float64) to
+// a value greater than 0 to set the cap, or leave it nil to clear it and return
+// the app to unlimited. SetSpendLimit and ClearSpendLimit are the ergonomic
+// shorthands for the two cases.
+func (a *Apps) UpdateSpendLimit(ctx context.Context, params *AppUpdateSpendLimitParams) (*App, error) {
+	if params == nil {
+		params = &AppUpdateSpendLimitParams{}
+	}
+	resp, err := a.client.UpdateSpendLimit(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetApp(), nil
+}
+
+// SetSpendLimit sets the app's monthly transcoding spend cap in EUR (must be
+// greater than 0). Once recorded spend for the current billing period reaches
+// the cap, new jobs are rejected with the "limit_exceeded" error code; in-flight
+// jobs are never stopped. Use ClearSpendLimit to return the app to unlimited.
+func (a *Apps) SetSpendLimit(ctx context.Context, id string, limitEUR float64) (*App, error) {
+	return a.UpdateSpendLimit(ctx, &AppUpdateSpendLimitParams{
+		AppId:                id,
+		MonthlySpendLimitEur: proto.Float64(limitEUR),
+	})
+}
+
+// ClearSpendLimit removes the app's monthly spend cap, returning it to unlimited
+// (the default). It omits the optional limit field, which the server treats as
+// "clear any existing cap".
+func (a *Apps) ClearSpendLimit(ctx context.Context, id string) (*App, error) {
+	// MonthlySpendLimitEur left nil (absent) = clear the cap.
+	return a.UpdateSpendLimit(ctx, &AppUpdateSpendLimitParams{AppId: id})
+}
+
+// GetSpend returns the app's current-period transcoding spend against its limit:
+// the billing-period bounds, the EUR spent so far, the cap (if set), and whether
+// the 80% warning and 100% breach events have fired this period.
+func (a *Apps) GetSpend(ctx context.Context, id string) (*AppSpend, error) {
+	resp, err := a.client.GetSpend(ctx, connect.NewRequest(&v1.GetSpendRequest{AppId: id}))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg, nil
+}

@@ -33,26 +33,28 @@ const DefaultWebhookTolerance = 5 * time.Minute
 // a plain string; the typed constants below cover the catalog the API emits.
 type EventType string
 
-// The 15 event types the platform emits. Mirrors the API's
+// The 17 event types the platform emits. Mirrors the API's
 // domain.WebhookEventTypes(). The "*" wildcard is a subscription value only and
 // is intentionally absent — it is never the type of a delivered event. Event.Type
 // is a plain string so an older SDK still decodes a type the API adds later.
 const (
-	EventTypeJobCreated     EventType = "job.created"
-	EventTypeJobSucceeded   EventType = "job.succeeded"
-	EventTypeJobFailed      EventType = "job.failed"
-	EventTypeJobCanceled    EventType = "job.canceled"
-	EventTypeJobProgress    EventType = "job.progress"
-	EventTypeOutputCreated  EventType = "output.created"
-	EventTypeOutputReady    EventType = "output.ready"
-	EventTypeOutputFailed   EventType = "output.failed"
-	EventTypeOutputProgress EventType = "output.progress"
-	EventTypeVideoUploaded  EventType = "video.uploaded"
-	EventTypeVideoReady     EventType = "video.ready"
-	EventTypeVideoFailed    EventType = "video.failed"
-	EventTypeVideoDeleted   EventType = "video.deleted"
-	EventTypeAppCreated     EventType = "app.created"
-	EventTypeAppUpdated     EventType = "app.updated"
+	EventTypeJobCreated            EventType = "job.created"
+	EventTypeJobSucceeded          EventType = "job.succeeded"
+	EventTypeJobFailed             EventType = "job.failed"
+	EventTypeJobCanceled           EventType = "job.canceled"
+	EventTypeJobProgress           EventType = "job.progress"
+	EventTypeOutputCreated         EventType = "output.created"
+	EventTypeOutputReady           EventType = "output.ready"
+	EventTypeOutputFailed          EventType = "output.failed"
+	EventTypeOutputProgress        EventType = "output.progress"
+	EventTypeVideoUploaded         EventType = "video.uploaded"
+	EventTypeVideoReady            EventType = "video.ready"
+	EventTypeVideoFailed           EventType = "video.failed"
+	EventTypeVideoDeleted          EventType = "video.deleted"
+	EventTypeAppCreated            EventType = "app.created"
+	EventTypeAppUpdated            EventType = "app.updated"
+	EventTypeAppSpendLimitWarning  EventType = "app.spend_limit_warning"
+	EventTypeAppSpendLimitExceeded EventType = "app.spend_limit_exceeded"
 )
 
 // WebhookEventTypes is the full catalog of emittable event types (excludes the
@@ -73,6 +75,8 @@ var WebhookEventTypes = []EventType{
 	EventTypeVideoDeleted,
 	EventTypeAppCreated,
 	EventTypeAppUpdated,
+	EventTypeAppSpendLimitWarning,
+	EventTypeAppSpendLimitExceeded,
 }
 
 // HealthWindow is the rolling window for [WebhookEndpoints.GetHealth].
@@ -224,10 +228,57 @@ func (e *WebhookEvent) Video() (*Video, bool) {
 	return v, ok
 }
 
-// App returns the decoded App and true for app.* events, else (nil, false).
+// App returns the decoded App and true for app.created / app.updated events,
+// else (nil, false). The app.spend_limit_warning and app.spend_limit_exceeded
+// events carry a notification payload rather than an App snapshot — use
+// [WebhookEvent.SpendLimit] for those.
 func (e *WebhookEvent) App() (*App, bool) {
 	a, ok := e.data.(*App)
 	return a, ok
+}
+
+// SpendLimitNotification is the payload of the app.spend_limit_warning and
+// app.spend_limit_exceeded events. Unlike the resource-carrying events, these
+// carry a small notification object rather than a resource snapshot.
+type SpendLimitNotification struct {
+	// AppID is the app the spend limit belongs to (`app_*`).
+	AppID string `json:"app_id"`
+	// PeriodStart is the inclusive start of the billing period, an RFC 3339
+	// full-date in UTC (e.g. "2026-01-01").
+	PeriodStart string `json:"period_start"`
+	// PeriodEnd is the exclusive end of the billing period, an RFC 3339
+	// full-date in UTC (e.g. "2026-02-01").
+	PeriodEnd string `json:"period_end"`
+	// LimitEUR is the app's monthly spend limit in EUR.
+	LimitEUR float64 `json:"limit_eur"`
+	// SpentEUR is the recorded spend for the period in EUR at the time the event
+	// fired.
+	SpentEUR float64 `json:"spent_eur"`
+	// ThresholdPct is the threshold crossed: 80 for the warning event, 100 for
+	// the breach event.
+	ThresholdPct int `json:"threshold_pct"`
+	// Currency of the amounts in this payload. Always "EUR".
+	Currency string `json:"currency"`
+}
+
+// SpendLimit returns the decoded notification and true for the
+// app.spend_limit_warning and app.spend_limit_exceeded events, else (nil,
+// false). These events carry a notification payload rather than a resource
+// snapshot, so [WebhookEvent.App] returns (nil, false) for them.
+func (e *WebhookEvent) SpendLimit() (*SpendLimitNotification, bool) {
+	switch e.Type {
+	case EventTypeAppSpendLimitWarning, EventTypeAppSpendLimitExceeded:
+	default:
+		return nil, false
+	}
+	if len(e.raw) == 0 {
+		return nil, false
+	}
+	var n SpendLimitNotification
+	if err := json.Unmarshal(e.raw, &n); err != nil {
+		return nil, false
+	}
+	return &n, true
 }
 
 // Data returns the decoded resource snapshot (a *Job, *JobOutput, *Video, or
@@ -254,8 +305,14 @@ func (e *WebhookEvent) decodeData() {
 }
 
 // resourceForEventType returns a fresh resource message for the event type's
-// prefix, or nil if the type is unrecognized.
+// prefix, or nil if the type is unrecognized. The spend-limit events share the
+// "app." prefix but carry a notification payload, not an App snapshot, so they
+// return nil here (they are decoded via [WebhookEvent.SpendLimit]).
 func resourceForEventType(t string) proto.Message {
+	switch t {
+	case string(EventTypeAppSpendLimitWarning), string(EventTypeAppSpendLimitExceeded):
+		return nil
+	}
 	switch {
 	case strings.HasPrefix(t, "output."):
 		return &v1.JobOutput{}

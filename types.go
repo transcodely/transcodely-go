@@ -50,6 +50,7 @@ type (
 	App                 = v1.App
 	HostingConfig       = v1.HostingConfig
 	AutoProfileDefaults = v1.AutoProfileDefaults
+	AppSpend            = v1.GetSpendResponse
 
 	APIKey = v1.APIKey
 
@@ -138,6 +139,9 @@ type (
 	AppUpdateParams              = v1.UpdateAppRequest
 	AppListParams                = v1.ListAppsRequest
 	AppUpdateHostingConfigParams = v1.UpdateHostingConfigRequest
+	AppUpdateSpendLimitParams    = v1.UpdateSpendLimitRequest
+	AppUpdateSpendLimitResponse  = v1.UpdateSpendLimitResponse
+	AppGetSpendParams            = v1.GetSpendRequest
 	APIKeyCreateParams           = v1.CreateAPIKeyRequest
 	APIKeyListParams             = v1.ListAPIKeysRequest
 	OrgCreateParams              = v1.CreateOrganizationRequest

@@ -96,6 +96,9 @@ type (
 	SubtitleTrack = v1.SubtitleTrack
 	BurnInStyle   = v1.BurnInStyle
 
+	WatermarkConfig         = v1.WatermarkConfig
+	WatermarkPixelPlacement = v1.WatermarkPixelPlacement
+
 	ThumbnailSpec   = v1.ThumbnailSpec
 	ThumbnailResult = v1.ThumbnailResult
 
@@ -198,6 +201,8 @@ type (
 
 	SubtitleOperation = v1.SubtitleOperation
 	SubtitleFormat    = v1.SubtitleFormat
+
+	WatermarkAnchor = v1.WatermarkAnchor
 
 	ThumbnailMode   = v1.ThumbnailMode
 	ThumbnailFormat = v1.ThumbnailFormat
@@ -390,6 +395,22 @@ const (
 	SubtitleFormatWebVTT = v1.SubtitleFormat_SUBTITLE_FORMAT_WEBVTT
 	SubtitleFormatTTML   = v1.SubtitleFormat_SUBTITLE_FORMAT_TTML
 	SubtitleFormatASS    = v1.SubtitleFormat_SUBTITLE_FORMAT_ASS
+)
+
+// WatermarkAnchor values. The relative-placement anchor region a watermark is
+// aligned to; wire form is lowercase (e.g. "bottom_right"). Unspecified is
+// treated as bottom_right server-side.
+const (
+	WatermarkAnchorUnspecified  = v1.WatermarkAnchor_WATERMARK_ANCHOR_UNSPECIFIED
+	WatermarkAnchorTopLeft      = v1.WatermarkAnchor_WATERMARK_ANCHOR_TOP_LEFT
+	WatermarkAnchorTopCenter    = v1.WatermarkAnchor_WATERMARK_ANCHOR_TOP_CENTER
+	WatermarkAnchorTopRight     = v1.WatermarkAnchor_WATERMARK_ANCHOR_TOP_RIGHT
+	WatermarkAnchorMiddleLeft   = v1.WatermarkAnchor_WATERMARK_ANCHOR_MIDDLE_LEFT
+	WatermarkAnchorMiddleCenter = v1.WatermarkAnchor_WATERMARK_ANCHOR_MIDDLE_CENTER
+	WatermarkAnchorMiddleRight  = v1.WatermarkAnchor_WATERMARK_ANCHOR_MIDDLE_RIGHT
+	WatermarkAnchorBottomLeft   = v1.WatermarkAnchor_WATERMARK_ANCHOR_BOTTOM_LEFT
+	WatermarkAnchorBottomCenter = v1.WatermarkAnchor_WATERMARK_ANCHOR_BOTTOM_CENTER
+	WatermarkAnchorBottomRight  = v1.WatermarkAnchor_WATERMARK_ANCHOR_BOTTOM_RIGHT
 )
 
 // ThumbnailMode values.

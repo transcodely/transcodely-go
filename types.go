@@ -99,6 +99,14 @@ type (
 	SubtitleResult = v1.SubtitleResult
 	BurnInStyle    = v1.BurnInStyle
 
+	// ChapterPoint and ChapterResult carry the opt-in auto-chapters pass over
+	// generated captions (SubtitleTrack.generate_chapters). Not yet populated:
+	// auto-chapters is rolling out together with the `generate` subtitle
+	// operation. Exported ahead of the rollout so consumers can code against
+	// the shape now.
+	ChapterPoint  = v1.ChapterPoint
+	ChapterResult = v1.ChapterResult
+
 	WatermarkConfig         = v1.WatermarkConfig
 	WatermarkPixelPlacement = v1.WatermarkPixelPlacement
 

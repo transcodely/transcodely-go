@@ -175,7 +175,10 @@ type ThumbnailSpec struct {
 	Height *int32 `protobuf:"varint,4,opt,name=height,proto3,oneof" json:"height,omitempty"`
 	// JPEG/WebP quality (1-100). Default: 80. Ignored for PNG.
 	Quality *int32 `protobuf:"varint,5,opt,name=quality,proto3,oneof" json:"quality,omitempty"`
-	// Timestamp in seconds for single mode.
+	// Timestamp in seconds for single mode. When omitted, the worker
+	// smart-selects a representative non-black frame from the opening of the
+	// video (deterministic per input) instead of extracting the frame at t=0.
+	// An explicit value — including 0 — extracts exactly that frame.
 	Timestamp *float64 `protobuf:"fixed64,6,opt,name=timestamp,proto3,oneof" json:"timestamp,omitempty"`
 	// Interval in seconds between frames (interval and sprite modes).
 	// Range: 0.5-300 seconds. Default: 10.

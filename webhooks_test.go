@@ -25,8 +25,8 @@ func TestNew_WiresWebhookNamespaces(t *testing.T) {
 }
 
 func TestWebhookEventCatalog(t *testing.T) {
-	if len(WebhookEventTypes) != 17 {
-		t.Fatalf("WebhookEventTypes has %d entries, want 17", len(WebhookEventTypes))
+	if len(WebhookEventTypes) != 18 {
+		t.Fatalf("WebhookEventTypes has %d entries, want 18", len(WebhookEventTypes))
 	}
 	for _, et := range WebhookEventTypes {
 		if et == "job.updated" {
@@ -63,6 +63,7 @@ func TestResourceForEventType(t *testing.T) {
 		{"video.uploaded", "*Video"},
 		{"video.ready", "*Video"},
 		{"video.failed", "*Video"},
+		{"video.source_scheduled_for_deletion", "*Video"},
 		{"app.updated", "*App"},
 		// Spend-limit events share the "app." prefix but are notification
 		// payloads, not App snapshots — they must NOT decode to *App.

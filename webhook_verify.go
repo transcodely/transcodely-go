@@ -33,28 +33,33 @@ const DefaultWebhookTolerance = 5 * time.Minute
 // a plain string; the typed constants below cover the catalog the API emits.
 type EventType string
 
-// The 17 event types the platform emits. Mirrors the API's
+// The 18 event types the platform emits. Mirrors the API's
 // domain.WebhookEventTypes(). The "*" wildcard is a subscription value only and
 // is intentionally absent — it is never the type of a delivered event. Event.Type
 // is a plain string so an older SDK still decodes a type the API adds later.
 const (
-	EventTypeJobCreated            EventType = "job.created"
-	EventTypeJobSucceeded          EventType = "job.succeeded"
-	EventTypeJobFailed             EventType = "job.failed"
-	EventTypeJobCanceled           EventType = "job.canceled"
-	EventTypeJobProgress           EventType = "job.progress"
-	EventTypeOutputCreated         EventType = "output.created"
-	EventTypeOutputReady           EventType = "output.ready"
-	EventTypeOutputFailed          EventType = "output.failed"
-	EventTypeOutputProgress        EventType = "output.progress"
-	EventTypeVideoUploaded         EventType = "video.uploaded"
-	EventTypeVideoReady            EventType = "video.ready"
-	EventTypeVideoFailed           EventType = "video.failed"
-	EventTypeVideoDeleted          EventType = "video.deleted"
-	EventTypeAppCreated            EventType = "app.created"
-	EventTypeAppUpdated            EventType = "app.updated"
-	EventTypeAppSpendLimitWarning  EventType = "app.spend_limit_warning"
-	EventTypeAppSpendLimitExceeded EventType = "app.spend_limit_exceeded"
+	EventTypeJobCreated     EventType = "job.created"
+	EventTypeJobSucceeded   EventType = "job.succeeded"
+	EventTypeJobFailed      EventType = "job.failed"
+	EventTypeJobCanceled    EventType = "job.canceled"
+	EventTypeJobProgress    EventType = "job.progress"
+	EventTypeOutputCreated  EventType = "output.created"
+	EventTypeOutputReady    EventType = "output.ready"
+	EventTypeOutputFailed   EventType = "output.failed"
+	EventTypeOutputProgress EventType = "output.progress"
+	EventTypeVideoUploaded  EventType = "video.uploaded"
+	EventTypeVideoReady     EventType = "video.ready"
+	EventTypeVideoFailed    EventType = "video.failed"
+	EventTypeVideoDeleted   EventType = "video.deleted"
+	// EventTypeVideoSourceScheduledForDeletion fires when a hosted video's
+	// original source file is scheduled for deletion by the app's
+	// delete_source_after_days lifecycle rule, at least 72 hours before the
+	// deletion. Renditions and playback are never affected.
+	EventTypeVideoSourceScheduledForDeletion EventType = "video.source_scheduled_for_deletion"
+	EventTypeAppCreated                      EventType = "app.created"
+	EventTypeAppUpdated                      EventType = "app.updated"
+	EventTypeAppSpendLimitWarning            EventType = "app.spend_limit_warning"
+	EventTypeAppSpendLimitExceeded           EventType = "app.spend_limit_exceeded"
 )
 
 // WebhookEventTypes is the full catalog of emittable event types (excludes the
@@ -73,6 +78,7 @@ var WebhookEventTypes = []EventType{
 	EventTypeVideoReady,
 	EventTypeVideoFailed,
 	EventTypeVideoDeleted,
+	EventTypeVideoSourceScheduledForDeletion,
 	EventTypeAppCreated,
 	EventTypeAppUpdated,
 	EventTypeAppSpendLimitWarning,

@@ -1,6 +1,7 @@
 package transcodely
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -24,8 +25,8 @@ func TestNew_WiresWebhookNamespaces(t *testing.T) {
 }
 
 func TestWebhookEventCatalog(t *testing.T) {
-	if len(WebhookEventTypes) != 15 {
-		t.Fatalf("WebhookEventTypes has %d entries, want 15", len(WebhookEventTypes))
+	if len(WebhookEventTypes) != 18 {
+		t.Fatalf("WebhookEventTypes has %d entries, want 18", len(WebhookEventTypes))
 	}
 	for _, et := range WebhookEventTypes {
 		if et == "job.updated" {
@@ -42,6 +43,12 @@ func TestWebhookEventCatalog(t *testing.T) {
 	if EventTypeOutputReady != "output.ready" {
 		t.Errorf("EventTypeOutputReady = %q", EventTypeOutputReady)
 	}
+	if EventTypeAppSpendLimitWarning != "app.spend_limit_warning" {
+		t.Errorf("EventTypeAppSpendLimitWarning = %q", EventTypeAppSpendLimitWarning)
+	}
+	if EventTypeAppSpendLimitExceeded != "app.spend_limit_exceeded" {
+		t.Errorf("EventTypeAppSpendLimitExceeded = %q", EventTypeAppSpendLimitExceeded)
+	}
 }
 
 func TestResourceForEventType(t *testing.T) {
@@ -56,7 +63,12 @@ func TestResourceForEventType(t *testing.T) {
 		{"video.uploaded", "*Video"},
 		{"video.ready", "*Video"},
 		{"video.failed", "*Video"},
+		{"video.source_scheduled_for_deletion", "*Video"},
 		{"app.updated", "*App"},
+		// Spend-limit events share the "app." prefix but are notification
+		// payloads, not App snapshots — they must NOT decode to *App.
+		{"app.spend_limit_warning", ""},
+		{"app.spend_limit_exceeded", ""},
 		{"subscription.created", ""},
 		{"", ""},
 	}
@@ -86,6 +98,38 @@ func typeName(v any) string {
 		return "*App"
 	}
 	return "unknown"
+}
+
+func TestWebhookEvent_SpendLimit(t *testing.T) {
+	for _, et := range []EventType{EventTypeAppSpendLimitWarning, EventTypeAppSpendLimitExceeded} {
+		ev := &WebhookEvent{
+			Type: et,
+			raw:  json.RawMessage(`{"app_id":"app_demo","period_start":"2026-01-01","period_end":"2026-02-01","limit_eur":100,"spent_eur":82.5,"threshold_pct":80,"currency":"EUR"}`),
+		}
+		// decodeData must NOT populate data with a mis-decoded *App.
+		ev.decodeData()
+		if ev.data != nil {
+			t.Errorf("%s: decodeData populated data=%T, want nil (notification payload)", et, ev.data)
+		}
+		if _, isApp := ev.App(); isApp {
+			t.Errorf("%s: App() returned true, want false for a notification payload", et)
+		}
+
+		n, ok := ev.SpendLimit()
+		if !ok {
+			t.Fatalf("%s: SpendLimit() ok=false, want true", et)
+		}
+		if n.AppID != "app_demo" || n.LimitEUR != 100 || n.SpentEUR != 82.5 ||
+			n.ThresholdPct != 80 || n.Currency != "EUR" ||
+			n.PeriodStart != "2026-01-01" || n.PeriodEnd != "2026-02-01" {
+			t.Errorf("%s: SpendLimit() = %+v, unexpected fields", et, n)
+		}
+	}
+
+	// SpendLimit() returns (nil, false) for a non-spend-limit event.
+	if _, ok := (&WebhookEvent{Type: EventTypeAppUpdated}).SpendLimit(); ok {
+		t.Error("SpendLimit() ok=true for app.updated, want false")
+	}
 }
 
 func TestWebhookEventFromProto_LedgerBridge(t *testing.T) {

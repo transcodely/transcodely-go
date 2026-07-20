@@ -41,7 +41,9 @@ type WebhookEndpoint struct {
 	// Possible values: "job.created", "job.succeeded", "job.failed",
 	// "job.canceled", "job.progress", "output.created", "output.ready",
 	// "output.failed", "output.progress", "video.uploaded", "video.ready",
-	// "video.failed", "video.deleted", "app.created", "app.updated", or "*".
+	// "video.failed", "video.deleted", "video.source_scheduled_for_deletion",
+	// "app.created", "app.updated", "app.spend_limit_warning",
+	// "app.spend_limit_exceeded", or "*".
 	// Keep in sync with domain.WebhookEventTypes() ("job.updated" does not exist).
 	EnabledEvents []string `protobuf:"bytes,5,rep,name=enabled_events,json=enabledEvents,proto3" json:"enabled_events,omitempty"`
 	// Operational status: "enabled" or "disabled".

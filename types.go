@@ -23,6 +23,7 @@ type (
 
 	PricingSnapshot        = v1.PricingSnapshot
 	VariantPricingSnapshot = v1.VariantPricingSnapshot
+	JobFee                 = v1.JobFee
 
 	Video          = v1.Video
 	VideoRendition = v1.VideoRendition
@@ -50,6 +51,7 @@ type (
 	App                 = v1.App
 	HostingConfig       = v1.HostingConfig
 	AutoProfileDefaults = v1.AutoProfileDefaults
+	AppSpend            = v1.GetSpendResponse
 
 	APIKey = v1.APIKey
 
@@ -93,13 +95,32 @@ type (
 	AutoABRConfig      = v1.AutoABRConfig
 	ContentAnalysis    = v1.ContentAnalysis
 
-	SubtitleTrack = v1.SubtitleTrack
-	BurnInStyle   = v1.BurnInStyle
+	SubtitleTrack  = v1.SubtitleTrack
+	SubtitleResult = v1.SubtitleResult
+	BurnInStyle    = v1.BurnInStyle
+
+	// ChapterPoint and ChapterResult carry the opt-in auto-chapters pass over
+	// generated captions (SubtitleTrack.generate_chapters). Not yet populated:
+	// auto-chapters is rolling out together with the `generate` subtitle
+	// operation. Exported ahead of the rollout so consumers can code against
+	// the shape now.
+	ChapterPoint  = v1.ChapterPoint
+	ChapterResult = v1.ChapterResult
+
+	WatermarkConfig         = v1.WatermarkConfig
+	WatermarkPixelPlacement = v1.WatermarkPixelPlacement
 
 	ThumbnailSpec   = v1.ThumbnailSpec
 	ThumbnailResult = v1.ThumbnailResult
 
 	StreamingConfig = v1.StreamingConfig
+
+	// ClipConfig trims the input to a sub-range before encoding. It rides on a
+	// JobCreateParams (Clip field) and applies job-wide: every output is
+	// encoded from the clipped range, and thumbnails/sprites are computed
+	// within it. Cuts are frame-accurate (outputs are always re-encoded), and
+	// billing keys off the produced output duration, so clipping reduces cost.
+	ClipConfig = v1.ClipConfig
 
 	H264Options = v1.H264Options
 	H265Options = v1.H265Options
@@ -138,6 +159,9 @@ type (
 	AppUpdateParams              = v1.UpdateAppRequest
 	AppListParams                = v1.ListAppsRequest
 	AppUpdateHostingConfigParams = v1.UpdateHostingConfigRequest
+	AppUpdateSpendLimitParams    = v1.UpdateSpendLimitRequest
+	AppUpdateSpendLimitResponse  = v1.UpdateSpendLimitResponse
+	AppGetSpendParams            = v1.GetSpendRequest
 	APIKeyCreateParams           = v1.CreateAPIKeyRequest
 	APIKeyListParams             = v1.ListAPIKeysRequest
 	OrgCreateParams              = v1.CreateOrganizationRequest
@@ -198,6 +222,8 @@ type (
 
 	SubtitleOperation = v1.SubtitleOperation
 	SubtitleFormat    = v1.SubtitleFormat
+
+	WatermarkAnchor = v1.WatermarkAnchor
 
 	ThumbnailMode   = v1.ThumbnailMode
 	ThumbnailFormat = v1.ThumbnailFormat
@@ -382,6 +408,7 @@ const (
 	SubtitleOpConvert     = v1.SubtitleOperation_SUBTITLE_OPERATION_CONVERT
 	SubtitleOpBurnIn      = v1.SubtitleOperation_SUBTITLE_OPERATION_BURN_IN
 	SubtitleOpExtract     = v1.SubtitleOperation_SUBTITLE_OPERATION_EXTRACT
+	SubtitleOpGenerate    = v1.SubtitleOperation_SUBTITLE_OPERATION_GENERATE
 )
 
 // SubtitleFormat values.
@@ -392,12 +419,29 @@ const (
 	SubtitleFormatASS    = v1.SubtitleFormat_SUBTITLE_FORMAT_ASS
 )
 
+// WatermarkAnchor values. The relative-placement anchor region a watermark is
+// aligned to; wire form is lowercase (e.g. "bottom_right"). Unspecified is
+// treated as bottom_right server-side.
+const (
+	WatermarkAnchorUnspecified  = v1.WatermarkAnchor_WATERMARK_ANCHOR_UNSPECIFIED
+	WatermarkAnchorTopLeft      = v1.WatermarkAnchor_WATERMARK_ANCHOR_TOP_LEFT
+	WatermarkAnchorTopCenter    = v1.WatermarkAnchor_WATERMARK_ANCHOR_TOP_CENTER
+	WatermarkAnchorTopRight     = v1.WatermarkAnchor_WATERMARK_ANCHOR_TOP_RIGHT
+	WatermarkAnchorMiddleLeft   = v1.WatermarkAnchor_WATERMARK_ANCHOR_MIDDLE_LEFT
+	WatermarkAnchorMiddleCenter = v1.WatermarkAnchor_WATERMARK_ANCHOR_MIDDLE_CENTER
+	WatermarkAnchorMiddleRight  = v1.WatermarkAnchor_WATERMARK_ANCHOR_MIDDLE_RIGHT
+	WatermarkAnchorBottomLeft   = v1.WatermarkAnchor_WATERMARK_ANCHOR_BOTTOM_LEFT
+	WatermarkAnchorBottomCenter = v1.WatermarkAnchor_WATERMARK_ANCHOR_BOTTOM_CENTER
+	WatermarkAnchorBottomRight  = v1.WatermarkAnchor_WATERMARK_ANCHOR_BOTTOM_RIGHT
+)
+
 // ThumbnailMode values.
 const (
 	ThumbnailModeSingle     = v1.ThumbnailMode_THUMBNAIL_MODE_SINGLE
 	ThumbnailModeInterval   = v1.ThumbnailMode_THUMBNAIL_MODE_INTERVAL
 	ThumbnailModeSprite     = v1.ThumbnailMode_THUMBNAIL_MODE_SPRITE
 	ThumbnailModeTimestamps = v1.ThumbnailMode_THUMBNAIL_MODE_TIMESTAMPS
+	ThumbnailModeAnimated   = v1.ThumbnailMode_THUMBNAIL_MODE_ANIMATED
 )
 
 // ThumbnailFormat values.

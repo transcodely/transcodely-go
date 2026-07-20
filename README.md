@@ -41,6 +41,10 @@ func main() {
                 {Codec: transcodely.VideoCodecH264, Resolution: transcodely.Resolution720P},
             },
         }},
+        // Optional: encode only a sub-range of the input. Applies job-wide and
+        // reduces cost (billing keys off the produced output duration). Omit
+        // EndSeconds (or leave 0) to encode through to the end of the input.
+        Clip: &transcodely.ClipConfig{StartSeconds: 2, EndSeconds: 7},
     })
     if err != nil {
         log.Fatal(err)

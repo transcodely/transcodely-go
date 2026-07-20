@@ -106,6 +106,13 @@ type (
 
 	StreamingConfig = v1.StreamingConfig
 
+	// ClipConfig trims the input to a sub-range before encoding. It rides on a
+	// JobCreateParams (Clip field) and applies job-wide: every output is
+	// encoded from the clipped range, and thumbnails/sprites are computed
+	// within it. Cuts are frame-accurate (outputs are always re-encoded), and
+	// billing keys off the produced output duration, so clipping reduces cost.
+	ClipConfig = v1.ClipConfig
+
 	H264Options = v1.H264Options
 	H265Options = v1.H265Options
 	VP9Options  = v1.VP9Options

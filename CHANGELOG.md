@@ -4,6 +4,25 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.2](https://github.com/transcodely/transcodely-go/compare/v0.3.1...v0.3.2) (2026-07-20)
+
+
+### Features
+
+* expose daily usage buckets and webhook endpoint health + event object-id filtering ([#21](https://github.com/transcodely/transcodely-go/issues/21)) ([921ec3e](https://github.com/transcodely/transcodely-go/commit/921ec3e2eb4c72451d9a5cd650429d4d9785a1f2))
+* post-launch feature program integration (transcodely-go) ([#29](https://github.com/transcodely/transcodely-go/issues/29)) ([18d1ca4](https://github.com/transcodely/transcodely-go/commit/18d1ca4b922f929afb6513017f0fd15c19d4ebd4))
+
+
+### Bug Fixes
+
+* **examples:** set managed on the create-job example ([#19](https://github.com/transcodely/transcodely-go/issues/19)) ([b1d680d](https://github.com/transcodely/transcodely-go/commit/b1d680d385198a82fd3583623e166dff3235c9c7))
+
+
+### Documentation
+
+* note content-aware encoding is rejected at create ([#25](https://github.com/transcodely/transcodely-go/issues/25)) ([29b3e36](https://github.com/transcodely/transcodely-go/commit/29b3e3636e0bd4f9950e651f1982dec6ec44226c))
+* set managed on the README quickstart create-job ([#27](https://github.com/transcodely/transcodely-go/issues/27)) ([eff2650](https://github.com/transcodely/transcodely-go/commit/eff2650785226db0330fe7b6d63b174097fd360b))
+
 ## [0.3.1](https://github.com/transcodely/transcodely-go/compare/v0.3.0...v0.3.1) (2026-07-15)
 
 

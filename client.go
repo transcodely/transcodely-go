@@ -32,7 +32,7 @@
 //
 // All resources hang off the root [Client]: Jobs, Videos, Presets, Origins,
 // Apps, APIKeys, Organizations, Memberships, Users, Health, WebhookEndpoints,
-// Events.
+// Events, Billing.
 //
 // Verify inbound webhook deliveries with the package-level [ConstructEvent].
 //
@@ -77,6 +77,10 @@ type Client struct {
 
 	WebhookEndpoints *WebhookEndpoints
 	Events           *Events
+
+	// Billing reads the organization's invoices. Requires a dashboard session
+	// token for an org owner plus [WithOrganization]; API keys are rejected.
+	Billing *Billing
 }
 
 // New constructs a Client. apiKey is required and should be a value like
@@ -124,6 +128,8 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 	c.Memberships = newMemberships(transcodelyv1connect.NewMembershipServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Users = newUsers(transcodelyv1connect.NewUserServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Health = newHealth(transcodelyv1connect.NewHealthServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
+
+	c.Billing = newBilling(transcodelyv1connect.NewBillingServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 
 	webhookClient := transcodelyv1connect.NewWebhookServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...)
 	c.WebhookEndpoints = newWebhookEndpoints(webhookClient)

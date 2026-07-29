@@ -27,6 +27,7 @@ type (
 
 	Video          = v1.Video
 	VideoRendition = v1.VideoRendition
+	VideoTextTrack = v1.VideoTextTrack
 	UploadPart     = v1.UploadPart
 	CompletedPart  = v1.CompletedPart
 	UsageSummary   = v1.UsageSummary
@@ -54,6 +55,12 @@ type (
 	AppSpend            = v1.GetSpendResponse
 
 	APIKey = v1.APIKey
+
+	// Invoice is one billing period's statement; InvoiceLineItem is one line of
+	// its breakdown. Read them through client.Billing — see [Billing] for why
+	// an API key cannot.
+	Invoice         = v1.Invoice
+	InvoiceLineItem = v1.InvoiceLineItem
 
 	Organization          = v1.Organization
 	Membership            = v1.Membership
@@ -178,6 +185,8 @@ type (
 	MultipartCompleteParams      = v1.CompleteMultipartUploadRequest
 	MultipartAbortParams         = v1.AbortMultipartUploadRequest
 
+	InvoiceListParams = v1.ListInvoicesRequest
+
 	WebhookEndpointCreateParams = v1.CreateWebhookEndpointRequest
 	WebhookEndpointUpdateParams = v1.UpdateWebhookEndpointRequest
 	WebhookEndpointListParams   = v1.ListWebhookEndpointsRequest
@@ -242,6 +251,11 @@ type (
 
 	MembershipStatus = v1.MembershipStatus
 	UserStatus       = v1.UserStatus
+
+	AppStatus = v1.AppStatus
+
+	InvoiceStatus   = v1.InvoiceStatus
+	InvoiceLineType = v1.InvoiceLineType
 )
 
 // JobStatus values.
@@ -531,4 +545,35 @@ const (
 	UserStatusActive      = v1.UserStatus_USER_STATUS_ACTIVE
 	UserStatusSuspended   = v1.UserStatus_USER_STATUS_SUSPENDED
 	UserStatusDeleted     = v1.UserStatus_USER_STATUS_DELETED
+)
+
+// AppStatus values. Suspended is a reversible platform-admin cutoff: API keys
+// scoped to the app are rejected with 403 until it is active again, but none of
+// the app's resources are removed. Archived is the terminal state.
+const (
+	AppStatusUnspecified = v1.AppStatus_APP_STATUS_UNSPECIFIED
+	AppStatusActive      = v1.AppStatus_APP_STATUS_ACTIVE
+	AppStatusArchived    = v1.AppStatus_APP_STATUS_ARCHIVED
+	AppStatusSuspended   = v1.AppStatus_APP_STATUS_SUSPENDED
+)
+
+// InvoiceStatus values. Draft appears only on the upcoming invoice; ListInvoices
+// returns open and later states.
+const (
+	InvoiceStatusUnspecified   = v1.InvoiceStatus_INVOICE_STATUS_UNSPECIFIED
+	InvoiceStatusDraft         = v1.InvoiceStatus_INVOICE_STATUS_DRAFT
+	InvoiceStatusOpen          = v1.InvoiceStatus_INVOICE_STATUS_OPEN
+	InvoiceStatusPaid          = v1.InvoiceStatus_INVOICE_STATUS_PAID
+	InvoiceStatusVoid          = v1.InvoiceStatus_INVOICE_STATUS_VOID
+	InvoiceStatusUncollectible = v1.InvoiceStatus_INVOICE_STATUS_UNCOLLECTIBLE
+)
+
+// InvoiceLineType values. Adjustment carries the residue that reconciles the
+// itemized lines with the amount charged, and is routinely negative.
+const (
+	InvoiceLineTypeUnspecified = v1.InvoiceLineType_INVOICE_LINE_TYPE_UNSPECIFIED
+	InvoiceLineTypeUsage       = v1.InvoiceLineType_INVOICE_LINE_TYPE_USAGE
+	InvoiceLineTypeFee         = v1.InvoiceLineType_INVOICE_LINE_TYPE_FEE
+	InvoiceLineTypeMinCharge   = v1.InvoiceLineType_INVOICE_LINE_TYPE_MIN_CHARGE
+	InvoiceLineTypeAdjustment  = v1.InvoiceLineType_INVOICE_LINE_TYPE_ADJUSTMENT
 )

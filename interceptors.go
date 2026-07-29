@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -18,12 +19,21 @@ import (
 func authInterceptor(cfg *config) connect.Interceptor {
 	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			req.Header().Set("Authorization", "Bearer "+cfg.apiKey)
-			req.Header().Set("User-Agent", cfg.userAgent)
-			req.Header().Set("Transcodely-Version", cfg.apiVersion)
+			setStandardHeaders(req.Header(), cfg)
 			return next(ctx, req)
 		}
 	})
+}
+
+// setStandardHeaders applies the headers every RPC carries. Kept in one place
+// so unary and streaming wiring cannot drift apart.
+func setStandardHeaders(h http.Header, cfg *config) {
+	h.Set("Authorization", "Bearer "+cfg.apiKey)
+	h.Set("User-Agent", cfg.userAgent)
+	h.Set("Transcodely-Version", cfg.apiVersion)
+	if cfg.orgID != "" {
+		h.Set("X-Organization-ID", cfg.orgID)
+	}
 }
 
 // streamingAuthInterceptor mirrors authInterceptor for server-streaming RPCs
@@ -32,18 +42,14 @@ func streamingAuthInterceptor(cfg *config) connect.Interceptor {
 	return interceptorFunc{
 		unary: func(next connect.UnaryFunc) connect.UnaryFunc {
 			return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-				req.Header().Set("Authorization", "Bearer "+cfg.apiKey)
-				req.Header().Set("User-Agent", cfg.userAgent)
-				req.Header().Set("Transcodely-Version", cfg.apiVersion)
+				setStandardHeaders(req.Header(), cfg)
 				return next(ctx, req)
 			}
 		},
 		streamingClient: func(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 			return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
 				conn := next(ctx, spec)
-				conn.RequestHeader().Set("Authorization", "Bearer "+cfg.apiKey)
-				conn.RequestHeader().Set("User-Agent", cfg.userAgent)
-				conn.RequestHeader().Set("Transcodely-Version", cfg.apiVersion)
+				setStandardHeaders(conn.RequestHeader(), cfg)
 				return conn
 			}
 		},

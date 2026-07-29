@@ -1294,8 +1294,9 @@ type JobOutput struct {
 	// Estimated cost (calculated after probe using locked pricing and estimated duration).
 	EstimatedCost *float64 `protobuf:"fixed64,10,opt,name=estimated_cost,json=estimatedCost,proto3,oneof" json:"estimated_cost,omitempty"`
 	// Actual cost (calculated after encoding using locked pricing and actual duration).
-	// For canceled outputs, this reflects cost of encoded portion.
-	// For failed outputs, this is zero.
+	// Only a completed output is billable, so this is zero for both canceled and
+	// failed outputs — a canceled output produced nothing usable, no matter how
+	// far its encode got.
 	ActualCost *float64 `protobuf:"fixed64,11,opt,name=actual_cost,json=actualCost,proto3,oneof" json:"actual_cost,omitempty"`
 	// Error code if failed.
 	ErrorCode *string `protobuf:"bytes,12,opt,name=error_code,json=errorCode,proto3,oneof" json:"error_code,omitempty"`
@@ -1880,8 +1881,22 @@ type Job struct {
 	Outputs []*JobOutput `protobuf:"bytes,7,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// Total estimated cost (sum of all outputs, calculated after probe).
 	TotalEstimatedCost *float64 `protobuf:"fixed64,8,opt,name=total_estimated_cost,json=totalEstimatedCost,proto3,oneof" json:"total_estimated_cost,omitempty"`
-	// Total actual cost (sum of completed/canceled outputs).
-	// Failed outputs contribute zero to this total.
+	// Total actual cost — what the job is billed, in the job's currency.
+	//
+	// Only completed outputs are billable, and what happened to the job as a
+	// whole decides whether they are billed at all:
+	//   - completed: the sum of its outputs' actual costs, raised to
+	//     minimum_charge_eur if that minimum is in effect.
+	//   - canceled: the sum of the outputs that had already completed and been
+	//     delivered when the cancel landed. Identical whether the job was
+	//     canceled through CancelJob or observed as canceled by the worker. The
+	//     minimum charge never applies.
+	//   - failed: zero. A job that ends failed is not billed, even if some of
+	//     its outputs completed before the failure.
+	//   - partial: the sum of the outputs that completed, un-floored.
+	//
+	// Additive fees (see fees) are included on top, and are charged only on jobs
+	// that ended completed or partial.
 	TotalActualCost *float64 `protobuf:"fixed64,9,opt,name=total_actual_cost,json=totalActualCost,proto3,oneof" json:"total_actual_cost,omitempty"`
 	// Error code if status is FAILED.
 	ErrorCode *string `protobuf:"bytes,10,opt,name=error_code,json=errorCode,proto3,oneof" json:"error_code,omitempty"`
@@ -1934,20 +1949,28 @@ type Job struct {
 	// Lets webhook consumers and polyglot SDKs identify the resource without
 	// out-of-band knowledge of the field name. Server-set; ignored on requests.
 	Object string `protobuf:"bytes,27,opt,name=object,proto3" json:"object,omitempty"`
-	// Minimum charge for this job in EUR, locked at creation from the compute
-	// capacity the job is sized to. When the minimum charge is in effect, the
-	// billed total for a successfully completed job is
+	// Minimum charge for this job in EUR, locked at creation and never changed
+	// retroactively. It is derived from the job's assigned billing class — a size
+	// band (small/medium/large/extra-large) reflecting the compute the job is
+	// guaranteed to cover — or, in legacy configurations, from the recommended
+	// machine size; either way it is a stable quote, not re-derived from the
+	// machine the job ultimately runs on. When the minimum charge is in effect,
+	// the billed total for a successfully completed job is
 	// max(sum of output costs, minimum_charge_eur) — see minimum_charge_applied
-	// for whether it determined this job's total. The minimum never applies to
-	// failed jobs (billed zero) or canceled jobs (billed for partial usage
-	// only). Absent when no minimum was computed for this job.
+	// for whether it determined this job's total. The minimum applies only to
+	// jobs that reach completed: a failed job is billed zero, and a canceled or
+	// partial job is billed the un-floored sum of the outputs it did complete.
+	// Absent when no minimum was computed for this job.
 	MinimumChargeEur *float64 `protobuf:"fixed64,30,opt,name=minimum_charge_eur,json=minimumChargeEur,proto3,oneof" json:"minimum_charge_eur,omitempty"`
 	// Whether minimum_charge_eur determined the job's most recently computed
 	// total — true when the sum of output costs came in below the minimum and
 	// the total was raised to it (estimated total after probe; actual total
 	// after successful completion). When true, total_estimated_cost or
 	// total_actual_cost exceeds the sum of the per-output cost fields, which
-	// are never raised themselves.
+	// are never raised themselves. The minimum is a stable quote locked at
+	// creation (from the job's billing class, or the recommended machine size in
+	// legacy configurations); it is never re-derived from the machine the job
+	// ultimately runs on.
 	MinimumChargeApplied bool `protobuf:"varint,31,opt,name=minimum_charge_applied,json=minimumChargeApplied,proto3" json:"minimum_charge_applied,omitempty"`
 	// Additive fee line items (v1: AI caption generation). Fees are charged ON
 	// TOP of the encode bill and sit OUTSIDE the minimum-charge floor:
@@ -2811,9 +2834,12 @@ func (x *GetJobResponse) GetJob() *Job {
 }
 
 // Request to list jobs.
+//
+// Filters combine with AND: a job is returned only if it satisfies every filter
+// supplied on the request. Omitted filters are not applied.
 type ListJobsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Optional status filter.
+	// Optional status filter. Superseded by `statuses` — see that field.
 	Status *JobStatus `protobuf:"varint,1,opt,name=status,proto3,enum=transcodely.v1.JobStatus,oneof" json:"status,omitempty"`
 	// Pagination parameters.
 	Pagination *PaginationRequest `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -2821,7 +2847,28 @@ type ListJobsRequest struct {
 	// or pass their own app; a different app is rejected with PermissionDenied.
 	// Portal/JWT callers pass it to list a specific app in their org; omitted
 	// returns jobs across all apps in the org.
-	AppId         *string `protobuf:"bytes,3,opt,name=app_id,json=appId,proto3,oneof" json:"app_id,omitempty"`
+	AppId *string `protobuf:"bytes,3,opt,name=app_id,json=appId,proto3,oneof" json:"app_id,omitempty"`
+	// Only include jobs created at or after this timestamp (RFC 3339). Inclusive.
+	CreatedAfter *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_after,json=createdAfter,proto3,oneof" json:"created_after,omitempty"`
+	// Only include jobs created at or before this timestamp (RFC 3339). Inclusive.
+	CreatedBefore *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_before,json=createdBefore,proto3,oneof" json:"created_before,omitempty"`
+	// Filter by several statuses at once: a job matches if its status is any one
+	// of the listed values (OR within the field), e.g. [failed, canceled] to list
+	// everything that did not finish.
+	//
+	// Precedence: when this field is non-empty it replaces `status` entirely and
+	// `status` is ignored — the two are never intersected. Send one or the other.
+	// `status` remains supported for existing clients.
+	Statuses []JobStatus `protobuf:"varint,6,rep,packed,name=statuses,proto3,enum=transcodely.v1.JobStatus" json:"statuses,omitempty"`
+	// Filter on the job's user-provided metadata (the `metadata` map supplied at
+	// create time). Every pair must be present on the job with exactly that value
+	// (AND across pairs); a job carrying additional metadata keys still matches.
+	// Values are compared as exact strings — no prefix, range, or wildcard match.
+	// Jobs created without metadata never match a non-empty filter.
+	//
+	// Example: {"batch": "2026-07", "tenant": "acme"} returns only jobs tagged
+	// with both.
+	Metadata      map[string]string `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2875,6 +2922,34 @@ func (x *ListJobsRequest) GetAppId() string {
 		return *x.AppId
 	}
 	return ""
+}
+
+func (x *ListJobsRequest) GetCreatedAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAfter
+	}
+	return nil
+}
+
+func (x *ListJobsRequest) GetCreatedBefore() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedBefore
+	}
+	return nil
+}
+
+func (x *ListJobsRequest) GetStatuses() []JobStatus {
+	if x != nil {
+		return x.Statuses
+	}
+	return nil
+}
+
+func (x *ListJobsRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
 }
 
 // Response from listing jobs.
@@ -4141,7 +4216,7 @@ var file_transcodely_v1_job_proto_rawDesc = string([]byte{
 	0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x25, 0x0a, 0x03, 0x6a,
 	0x6f, 0x62, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73,
 	0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x4a, 0x6f, 0x62, 0x52, 0x03, 0x6a,
-	0x6f, 0x62, 0x22, 0xdb, 0x01, 0x0a, 0x0f, 0x4c, 0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x73, 0x52,
+	0x6f, 0x62, 0x22, 0xfb, 0x04, 0x0a, 0x0f, 0x4c, 0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x73, 0x52,
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x36, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x19, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f,
 	0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74, 0x75,
@@ -4153,8 +4228,34 @@ var file_transcodely_v1_job_proto_rawDesc = string([]byte{
 	0x6e, 0x12, 0x37, 0x0a, 0x06, 0x61, 0x70, 0x70, 0x5f, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28,
 	0x09, 0x42, 0x1b, 0xba, 0x48, 0x18, 0x72, 0x16, 0x32, 0x14, 0x5e, 0x61, 0x70, 0x70, 0x5f, 0x5b,
 	0x61, 0x2d, 0x7a, 0x41, 0x2d, 0x5a, 0x30, 0x2d, 0x39, 0x5f, 0x2d, 0x5d, 0x2b, 0x24, 0x48, 0x01,
-	0x52, 0x05, 0x61, 0x70, 0x70, 0x49, 0x64, 0x88, 0x01, 0x01, 0x42, 0x09, 0x0a, 0x07, 0x5f, 0x73,
-	0x74, 0x61, 0x74, 0x75, 0x73, 0x42, 0x09, 0x0a, 0x07, 0x5f, 0x61, 0x70, 0x70, 0x5f, 0x69, 0x64,
+	0x52, 0x05, 0x61, 0x70, 0x70, 0x49, 0x64, 0x88, 0x01, 0x01, 0x12, 0x44, 0x0a, 0x0d, 0x63, 0x72,
+	0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x66, 0x74, 0x65, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x48, 0x02, 0x52,
+	0x0c, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x41, 0x66, 0x74, 0x65, 0x72, 0x88, 0x01, 0x01,
+	0x12, 0x46, 0x0a, 0x0e, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x62, 0x65, 0x66, 0x6f,
+	0x72, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
+	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73,
+	0x74, 0x61, 0x6d, 0x70, 0x48, 0x03, 0x52, 0x0d, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x42,
+	0x65, 0x66, 0x6f, 0x72, 0x65, 0x88, 0x01, 0x01, 0x12, 0x4a, 0x0a, 0x08, 0x73, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x65, 0x73, 0x18, 0x06, 0x20, 0x03, 0x28, 0x0e, 0x32, 0x19, 0x2e, 0x74, 0x72, 0x61,
+	0x6e, 0x73, 0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x4a, 0x6f, 0x62, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x42, 0x13, 0xba, 0x48, 0x10, 0x92, 0x01, 0x0d, 0x10, 0x08, 0x18,
+	0x01, 0x22, 0x07, 0x82, 0x01, 0x04, 0x10, 0x01, 0x20, 0x00, 0x52, 0x08, 0x73, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x65, 0x73, 0x12, 0x62, 0x0a, 0x08, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61,
+	0x18, 0x07, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2d, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f,
+	0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x73,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61,
+	0x45, 0x6e, 0x74, 0x72, 0x79, 0x42, 0x17, 0xba, 0x48, 0x14, 0x9a, 0x01, 0x11, 0x10, 0x0a, 0x22,
+	0x06, 0x72, 0x04, 0x10, 0x01, 0x18, 0x40, 0x2a, 0x05, 0x72, 0x03, 0x18, 0x80, 0x08, 0x52, 0x08,
+	0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x1a, 0x3b, 0x0a, 0x0d, 0x4d, 0x65, 0x74, 0x61,
+	0x64, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75,
+	0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x09, 0x0a, 0x07, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x42, 0x09, 0x0a, 0x07, 0x5f, 0x61, 0x70, 0x70, 0x5f, 0x69, 0x64, 0x42, 0x10, 0x0a, 0x0e, 0x5f,
+	0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x61, 0x66, 0x74, 0x65, 0x72, 0x42, 0x11, 0x0a,
+	0x0f, 0x5f, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x62, 0x65, 0x66, 0x6f, 0x72, 0x65,
 	0x22, 0x7f, 0x0a, 0x10, 0x4c, 0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x73, 0x52, 0x65, 0x73, 0x70,
 	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x27, 0x0a, 0x04, 0x6a, 0x6f, 0x62, 0x73, 0x18, 0x01, 0x20, 0x03,
 	0x28, 0x0b, 0x32, 0x13, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79,
@@ -4305,7 +4406,7 @@ func file_transcodely_v1_job_proto_rawDescGZIP() []byte {
 }
 
 var file_transcodely_v1_job_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_transcodely_v1_job_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_transcodely_v1_job_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_transcodely_v1_job_proto_goTypes = []any{
 	(JobStatus)(0),                 // 0: transcodely.v1.JobStatus
 	(OutputStatus)(0),              // 1: transcodely.v1.OutputStatus
@@ -4339,119 +4440,124 @@ var file_transcodely_v1_job_proto_goTypes = []any{
 	(*WatchJobResponse)(nil),       // 29: transcodely.v1.WatchJobResponse
 	nil,                            // 30: transcodely.v1.Job.MetadataEntry
 	nil,                            // 31: transcodely.v1.CreateJobRequest.MetadataEntry
-	(VideoCodec)(0),                // 32: transcodely.v1.VideoCodec
-	(Resolution)(0),                // 33: transcodely.v1.Resolution
-	(QualityTier)(0),               // 34: transcodely.v1.QualityTier
-	(*H264Options)(nil),            // 35: transcodely.v1.H264Options
-	(*H265Options)(nil),            // 36: transcodely.v1.H265Options
-	(*VP9Options)(nil),             // 37: transcodely.v1.VP9Options
-	(*AV1Options)(nil),             // 38: transcodely.v1.AV1Options
-	(*HDRConfig)(nil),              // 39: transcodely.v1.HDRConfig
-	(HLSSegmentFormat)(0),          // 40: transcodely.v1.HLSSegmentFormat
-	(HLSPlaylistType)(0),           // 41: transcodely.v1.HLSPlaylistType
-	(GOPAlignmentMode)(0),          // 42: transcodely.v1.GOPAlignmentMode
-	(OutputFormat)(0),              // 43: transcodely.v1.OutputFormat
-	(*SubtitleTrack)(nil),          // 44: transcodely.v1.SubtitleTrack
-	(*DRMConfig)(nil),              // 45: transcodely.v1.DRMConfig
-	(*ContentAwareConfig)(nil),     // 46: transcodely.v1.ContentAwareConfig
-	(*WatermarkConfig)(nil),        // 47: transcodely.v1.WatermarkConfig
-	(*timestamppb.Timestamp)(nil),  // 48: google.protobuf.Timestamp
-	(*OriginRef)(nil),              // 49: transcodely.v1.OriginRef
-	(*InputMetadata)(nil),          // 50: transcodely.v1.InputMetadata
-	(*ThumbnailSpec)(nil),          // 51: transcodely.v1.ThumbnailSpec
-	(*ThumbnailResult)(nil),        // 52: transcodely.v1.ThumbnailResult
-	(*SubtitleResult)(nil),         // 53: transcodely.v1.SubtitleResult
-	(*ChapterResult)(nil),          // 54: transcodely.v1.ChapterResult
-	(*PaginationRequest)(nil),      // 55: transcodely.v1.PaginationRequest
-	(*PaginationResponse)(nil),     // 56: transcodely.v1.PaginationResponse
+	nil,                            // 32: transcodely.v1.ListJobsRequest.MetadataEntry
+	(VideoCodec)(0),                // 33: transcodely.v1.VideoCodec
+	(Resolution)(0),                // 34: transcodely.v1.Resolution
+	(QualityTier)(0),               // 35: transcodely.v1.QualityTier
+	(*H264Options)(nil),            // 36: transcodely.v1.H264Options
+	(*H265Options)(nil),            // 37: transcodely.v1.H265Options
+	(*VP9Options)(nil),             // 38: transcodely.v1.VP9Options
+	(*AV1Options)(nil),             // 39: transcodely.v1.AV1Options
+	(*HDRConfig)(nil),              // 40: transcodely.v1.HDRConfig
+	(HLSSegmentFormat)(0),          // 41: transcodely.v1.HLSSegmentFormat
+	(HLSPlaylistType)(0),           // 42: transcodely.v1.HLSPlaylistType
+	(GOPAlignmentMode)(0),          // 43: transcodely.v1.GOPAlignmentMode
+	(OutputFormat)(0),              // 44: transcodely.v1.OutputFormat
+	(*SubtitleTrack)(nil),          // 45: transcodely.v1.SubtitleTrack
+	(*DRMConfig)(nil),              // 46: transcodely.v1.DRMConfig
+	(*ContentAwareConfig)(nil),     // 47: transcodely.v1.ContentAwareConfig
+	(*WatermarkConfig)(nil),        // 48: transcodely.v1.WatermarkConfig
+	(*timestamppb.Timestamp)(nil),  // 49: google.protobuf.Timestamp
+	(*OriginRef)(nil),              // 50: transcodely.v1.OriginRef
+	(*InputMetadata)(nil),          // 51: transcodely.v1.InputMetadata
+	(*ThumbnailSpec)(nil),          // 52: transcodely.v1.ThumbnailSpec
+	(*ThumbnailResult)(nil),        // 53: transcodely.v1.ThumbnailResult
+	(*SubtitleResult)(nil),         // 54: transcodely.v1.SubtitleResult
+	(*ChapterResult)(nil),          // 55: transcodely.v1.ChapterResult
+	(*PaginationRequest)(nil),      // 56: transcodely.v1.PaginationRequest
+	(*PaginationResponse)(nil),     // 57: transcodely.v1.PaginationResponse
 }
 var file_transcodely_v1_job_proto_depIdxs = []int32{
-	32, // 0: transcodely.v1.VideoVariant.codec:type_name -> transcodely.v1.VideoCodec
-	33, // 1: transcodely.v1.VideoVariant.resolution:type_name -> transcodely.v1.Resolution
-	34, // 2: transcodely.v1.VideoVariant.quality:type_name -> transcodely.v1.QualityTier
-	35, // 3: transcodely.v1.VideoVariant.h264:type_name -> transcodely.v1.H264Options
-	36, // 4: transcodely.v1.VideoVariant.h265:type_name -> transcodely.v1.H265Options
-	37, // 5: transcodely.v1.VideoVariant.vp9:type_name -> transcodely.v1.VP9Options
-	38, // 6: transcodely.v1.VideoVariant.av1:type_name -> transcodely.v1.AV1Options
-	39, // 7: transcodely.v1.VideoVariant.hdr:type_name -> transcodely.v1.HDRConfig
-	40, // 8: transcodely.v1.HLSConfig.segment_format:type_name -> transcodely.v1.HLSSegmentFormat
-	41, // 9: transcodely.v1.HLSConfig.playlist_type:type_name -> transcodely.v1.HLSPlaylistType
-	42, // 10: transcodely.v1.SegmentConfig.gop_alignment:type_name -> transcodely.v1.GOPAlignmentMode
-	43, // 11: transcodely.v1.OutputSpec.type:type_name -> transcodely.v1.OutputFormat
+	33, // 0: transcodely.v1.VideoVariant.codec:type_name -> transcodely.v1.VideoCodec
+	34, // 1: transcodely.v1.VideoVariant.resolution:type_name -> transcodely.v1.Resolution
+	35, // 2: transcodely.v1.VideoVariant.quality:type_name -> transcodely.v1.QualityTier
+	36, // 3: transcodely.v1.VideoVariant.h264:type_name -> transcodely.v1.H264Options
+	37, // 4: transcodely.v1.VideoVariant.h265:type_name -> transcodely.v1.H265Options
+	38, // 5: transcodely.v1.VideoVariant.vp9:type_name -> transcodely.v1.VP9Options
+	39, // 6: transcodely.v1.VideoVariant.av1:type_name -> transcodely.v1.AV1Options
+	40, // 7: transcodely.v1.VideoVariant.hdr:type_name -> transcodely.v1.HDRConfig
+	41, // 8: transcodely.v1.HLSConfig.segment_format:type_name -> transcodely.v1.HLSSegmentFormat
+	42, // 9: transcodely.v1.HLSConfig.playlist_type:type_name -> transcodely.v1.HLSPlaylistType
+	43, // 10: transcodely.v1.SegmentConfig.gop_alignment:type_name -> transcodely.v1.GOPAlignmentMode
+	44, // 11: transcodely.v1.OutputSpec.type:type_name -> transcodely.v1.OutputFormat
 	5,  // 12: transcodely.v1.OutputSpec.video:type_name -> transcodely.v1.VideoVariant
 	4,  // 13: transcodely.v1.OutputSpec.audio:type_name -> transcodely.v1.AudioTrackConfig
 	6,  // 14: transcodely.v1.OutputSpec.hls:type_name -> transcodely.v1.HLSConfig
 	7,  // 15: transcodely.v1.OutputSpec.dash:type_name -> transcodely.v1.DASHConfig
 	8,  // 16: transcodely.v1.OutputSpec.segments:type_name -> transcodely.v1.SegmentConfig
-	44, // 17: transcodely.v1.OutputSpec.subtitle_tracks:type_name -> transcodely.v1.SubtitleTrack
-	45, // 18: transcodely.v1.OutputSpec.drm:type_name -> transcodely.v1.DRMConfig
-	46, // 19: transcodely.v1.OutputSpec.content_aware:type_name -> transcodely.v1.ContentAwareConfig
-	47, // 20: transcodely.v1.OutputSpec.watermark:type_name -> transcodely.v1.WatermarkConfig
-	33, // 21: transcodely.v1.PricingSnapshot.resolution_tier:type_name -> transcodely.v1.Resolution
-	32, // 22: transcodely.v1.VariantPricingSnapshot.codec:type_name -> transcodely.v1.VideoCodec
-	33, // 23: transcodely.v1.VariantPricingSnapshot.resolution:type_name -> transcodely.v1.Resolution
-	34, // 24: transcodely.v1.VariantPricingSnapshot.quality:type_name -> transcodely.v1.QualityTier
-	33, // 25: transcodely.v1.VariantPricingSnapshot.resolution_tier:type_name -> transcodely.v1.Resolution
+	45, // 17: transcodely.v1.OutputSpec.subtitle_tracks:type_name -> transcodely.v1.SubtitleTrack
+	46, // 18: transcodely.v1.OutputSpec.drm:type_name -> transcodely.v1.DRMConfig
+	47, // 19: transcodely.v1.OutputSpec.content_aware:type_name -> transcodely.v1.ContentAwareConfig
+	48, // 20: transcodely.v1.OutputSpec.watermark:type_name -> transcodely.v1.WatermarkConfig
+	34, // 21: transcodely.v1.PricingSnapshot.resolution_tier:type_name -> transcodely.v1.Resolution
+	33, // 22: transcodely.v1.VariantPricingSnapshot.codec:type_name -> transcodely.v1.VideoCodec
+	34, // 23: transcodely.v1.VariantPricingSnapshot.resolution:type_name -> transcodely.v1.Resolution
+	35, // 24: transcodely.v1.VariantPricingSnapshot.quality:type_name -> transcodely.v1.QualityTier
+	34, // 25: transcodely.v1.VariantPricingSnapshot.resolution_tier:type_name -> transcodely.v1.Resolution
 	9,  // 26: transcodely.v1.JobOutput.spec:type_name -> transcodely.v1.OutputSpec
 	1,  // 27: transcodely.v1.JobOutput.status:type_name -> transcodely.v1.OutputStatus
 	10, // 28: transcodely.v1.JobOutput.pricing:type_name -> transcodely.v1.PricingSnapshot
-	48, // 29: transcodely.v1.JobOutput.started_at:type_name -> google.protobuf.Timestamp
-	48, // 30: transcodely.v1.JobOutput.completed_at:type_name -> google.protobuf.Timestamp
+	49, // 29: transcodely.v1.JobOutput.started_at:type_name -> google.protobuf.Timestamp
+	49, // 30: transcodely.v1.JobOutput.completed_at:type_name -> google.protobuf.Timestamp
 	11, // 31: transcodely.v1.JobOutput.variant_pricing:type_name -> transcodely.v1.VariantPricingSnapshot
 	13, // 32: transcodely.v1.JobOutput.variant_results:type_name -> transcodely.v1.OutputVariantResult
-	49, // 33: transcodely.v1.Job.input_origin:type_name -> transcodely.v1.OriginRef
-	49, // 34: transcodely.v1.Job.output_origin:type_name -> transcodely.v1.OriginRef
+	50, // 33: transcodely.v1.Job.input_origin:type_name -> transcodely.v1.OriginRef
+	50, // 34: transcodely.v1.Job.output_origin:type_name -> transcodely.v1.OriginRef
 	0,  // 35: transcodely.v1.Job.status:type_name -> transcodely.v1.JobStatus
 	2,  // 36: transcodely.v1.Job.priority:type_name -> transcodely.v1.JobPriority
-	50, // 37: transcodely.v1.Job.input_metadata:type_name -> transcodely.v1.InputMetadata
+	51, // 37: transcodely.v1.Job.input_metadata:type_name -> transcodely.v1.InputMetadata
 	12, // 38: transcodely.v1.Job.outputs:type_name -> transcodely.v1.JobOutput
 	30, // 39: transcodely.v1.Job.metadata:type_name -> transcodely.v1.Job.MetadataEntry
-	48, // 40: transcodely.v1.Job.created_at:type_name -> google.protobuf.Timestamp
-	48, // 41: transcodely.v1.Job.updated_at:type_name -> google.protobuf.Timestamp
-	48, // 42: transcodely.v1.Job.probed_at:type_name -> google.protobuf.Timestamp
-	48, // 43: transcodely.v1.Job.started_at:type_name -> google.protobuf.Timestamp
-	48, // 44: transcodely.v1.Job.completed_at:type_name -> google.protobuf.Timestamp
-	48, // 45: transcodely.v1.Job.confirmed_at:type_name -> google.protobuf.Timestamp
+	49, // 40: transcodely.v1.Job.created_at:type_name -> google.protobuf.Timestamp
+	49, // 41: transcodely.v1.Job.updated_at:type_name -> google.protobuf.Timestamp
+	49, // 42: transcodely.v1.Job.probed_at:type_name -> google.protobuf.Timestamp
+	49, // 43: transcodely.v1.Job.started_at:type_name -> google.protobuf.Timestamp
+	49, // 44: transcodely.v1.Job.completed_at:type_name -> google.protobuf.Timestamp
+	49, // 45: transcodely.v1.Job.confirmed_at:type_name -> google.protobuf.Timestamp
 	14, // 46: transcodely.v1.Job.execution:type_name -> transcodely.v1.ExecutionTiming
-	51, // 47: transcodely.v1.Job.thumbnails:type_name -> transcodely.v1.ThumbnailSpec
-	52, // 48: transcodely.v1.Job.thumbnail_results:type_name -> transcodely.v1.ThumbnailResult
-	53, // 49: transcodely.v1.Job.subtitle_results:type_name -> transcodely.v1.SubtitleResult
+	52, // 47: transcodely.v1.Job.thumbnails:type_name -> transcodely.v1.ThumbnailSpec
+	53, // 48: transcodely.v1.Job.thumbnail_results:type_name -> transcodely.v1.ThumbnailResult
+	54, // 49: transcodely.v1.Job.subtitle_results:type_name -> transcodely.v1.SubtitleResult
 	16, // 50: transcodely.v1.Job.fees:type_name -> transcodely.v1.JobFee
-	54, // 51: transcodely.v1.Job.chapter_results:type_name -> transcodely.v1.ChapterResult
+	55, // 51: transcodely.v1.Job.chapter_results:type_name -> transcodely.v1.ChapterResult
 	17, // 52: transcodely.v1.Job.clip:type_name -> transcodely.v1.ClipConfig
 	9,  // 53: transcodely.v1.CreateJobRequest.outputs:type_name -> transcodely.v1.OutputSpec
 	2,  // 54: transcodely.v1.CreateJobRequest.priority:type_name -> transcodely.v1.JobPriority
 	31, // 55: transcodely.v1.CreateJobRequest.metadata:type_name -> transcodely.v1.CreateJobRequest.MetadataEntry
-	51, // 56: transcodely.v1.CreateJobRequest.thumbnails:type_name -> transcodely.v1.ThumbnailSpec
+	52, // 56: transcodely.v1.CreateJobRequest.thumbnails:type_name -> transcodely.v1.ThumbnailSpec
 	17, // 57: transcodely.v1.CreateJobRequest.clip:type_name -> transcodely.v1.ClipConfig
 	15, // 58: transcodely.v1.CreateJobResponse.job:type_name -> transcodely.v1.Job
 	15, // 59: transcodely.v1.GetJobResponse.job:type_name -> transcodely.v1.Job
 	0,  // 60: transcodely.v1.ListJobsRequest.status:type_name -> transcodely.v1.JobStatus
-	55, // 61: transcodely.v1.ListJobsRequest.pagination:type_name -> transcodely.v1.PaginationRequest
-	15, // 62: transcodely.v1.ListJobsResponse.jobs:type_name -> transcodely.v1.Job
-	56, // 63: transcodely.v1.ListJobsResponse.pagination:type_name -> transcodely.v1.PaginationResponse
-	15, // 64: transcodely.v1.CancelJobResponse.job:type_name -> transcodely.v1.Job
-	15, // 65: transcodely.v1.ConfirmJobResponse.job:type_name -> transcodely.v1.Job
-	15, // 66: transcodely.v1.WatchJobResponse.job:type_name -> transcodely.v1.Job
-	3,  // 67: transcodely.v1.WatchJobResponse.event:type_name -> transcodely.v1.WatchEventType
-	48, // 68: transcodely.v1.WatchJobResponse.server_time:type_name -> google.protobuf.Timestamp
-	18, // 69: transcodely.v1.JobService.Create:input_type -> transcodely.v1.CreateJobRequest
-	20, // 70: transcodely.v1.JobService.Get:input_type -> transcodely.v1.GetJobRequest
-	22, // 71: transcodely.v1.JobService.List:input_type -> transcodely.v1.ListJobsRequest
-	24, // 72: transcodely.v1.JobService.Cancel:input_type -> transcodely.v1.CancelJobRequest
-	26, // 73: transcodely.v1.JobService.Confirm:input_type -> transcodely.v1.ConfirmJobRequest
-	28, // 74: transcodely.v1.JobService.Watch:input_type -> transcodely.v1.WatchJobRequest
-	19, // 75: transcodely.v1.JobService.Create:output_type -> transcodely.v1.CreateJobResponse
-	21, // 76: transcodely.v1.JobService.Get:output_type -> transcodely.v1.GetJobResponse
-	23, // 77: transcodely.v1.JobService.List:output_type -> transcodely.v1.ListJobsResponse
-	25, // 78: transcodely.v1.JobService.Cancel:output_type -> transcodely.v1.CancelJobResponse
-	27, // 79: transcodely.v1.JobService.Confirm:output_type -> transcodely.v1.ConfirmJobResponse
-	29, // 80: transcodely.v1.JobService.Watch:output_type -> transcodely.v1.WatchJobResponse
-	75, // [75:81] is the sub-list for method output_type
-	69, // [69:75] is the sub-list for method input_type
-	69, // [69:69] is the sub-list for extension type_name
-	69, // [69:69] is the sub-list for extension extendee
-	0,  // [0:69] is the sub-list for field type_name
+	56, // 61: transcodely.v1.ListJobsRequest.pagination:type_name -> transcodely.v1.PaginationRequest
+	49, // 62: transcodely.v1.ListJobsRequest.created_after:type_name -> google.protobuf.Timestamp
+	49, // 63: transcodely.v1.ListJobsRequest.created_before:type_name -> google.protobuf.Timestamp
+	0,  // 64: transcodely.v1.ListJobsRequest.statuses:type_name -> transcodely.v1.JobStatus
+	32, // 65: transcodely.v1.ListJobsRequest.metadata:type_name -> transcodely.v1.ListJobsRequest.MetadataEntry
+	15, // 66: transcodely.v1.ListJobsResponse.jobs:type_name -> transcodely.v1.Job
+	57, // 67: transcodely.v1.ListJobsResponse.pagination:type_name -> transcodely.v1.PaginationResponse
+	15, // 68: transcodely.v1.CancelJobResponse.job:type_name -> transcodely.v1.Job
+	15, // 69: transcodely.v1.ConfirmJobResponse.job:type_name -> transcodely.v1.Job
+	15, // 70: transcodely.v1.WatchJobResponse.job:type_name -> transcodely.v1.Job
+	3,  // 71: transcodely.v1.WatchJobResponse.event:type_name -> transcodely.v1.WatchEventType
+	49, // 72: transcodely.v1.WatchJobResponse.server_time:type_name -> google.protobuf.Timestamp
+	18, // 73: transcodely.v1.JobService.Create:input_type -> transcodely.v1.CreateJobRequest
+	20, // 74: transcodely.v1.JobService.Get:input_type -> transcodely.v1.GetJobRequest
+	22, // 75: transcodely.v1.JobService.List:input_type -> transcodely.v1.ListJobsRequest
+	24, // 76: transcodely.v1.JobService.Cancel:input_type -> transcodely.v1.CancelJobRequest
+	26, // 77: transcodely.v1.JobService.Confirm:input_type -> transcodely.v1.ConfirmJobRequest
+	28, // 78: transcodely.v1.JobService.Watch:input_type -> transcodely.v1.WatchJobRequest
+	19, // 79: transcodely.v1.JobService.Create:output_type -> transcodely.v1.CreateJobResponse
+	21, // 80: transcodely.v1.JobService.Get:output_type -> transcodely.v1.GetJobResponse
+	23, // 81: transcodely.v1.JobService.List:output_type -> transcodely.v1.ListJobsResponse
+	25, // 82: transcodely.v1.JobService.Cancel:output_type -> transcodely.v1.CancelJobResponse
+	27, // 83: transcodely.v1.JobService.Confirm:output_type -> transcodely.v1.ConfirmJobResponse
+	29, // 84: transcodely.v1.JobService.Watch:output_type -> transcodely.v1.WatchJobResponse
+	79, // [79:85] is the sub-list for method output_type
+	73, // [73:79] is the sub-list for method input_type
+	73, // [73:73] is the sub-list for extension type_name
+	73, // [73:73] is the sub-list for extension extendee
+	0,  // [0:73] is the sub-list for field type_name
 }
 
 func init() { file_transcodely_v1_job_proto_init() }
@@ -4494,7 +4600,7 @@ func file_transcodely_v1_job_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_transcodely_v1_job_proto_rawDesc), len(file_transcodely_v1_job_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   28,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

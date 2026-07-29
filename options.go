@@ -11,6 +11,7 @@ type Option func(*config)
 
 type config struct {
 	apiKey      string
+	orgID       string
 	baseURL     string
 	httpClient  *http.Client
 	maxRetries  int
@@ -37,6 +38,17 @@ func defaultConfig() *config {
 // Useful for staging, local docker-compose, or self-hosted deployments.
 func WithBaseURL(url string) Option {
 	return func(c *config) { c.baseURL = url }
+}
+
+// WithOrganization sets the organization every request is made against, sent
+// as the `X-Organization-ID` header.
+//
+// API-key clients never need this: a key is already scoped to one app, and
+// therefore to one organization. It is required for the org-scoped surfaces a
+// dashboard session token reaches — [Client.Billing] and [APIKeys.Create]
+// among them — which answer 400 invalid_argument without it.
+func WithOrganization(orgID string) Option {
+	return func(c *config) { c.orgID = orgID }
 }
 
 // WithHTTPClient supplies a custom *http.Client. Useful for injecting a

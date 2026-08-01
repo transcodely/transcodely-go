@@ -1877,7 +1877,9 @@ type Job struct {
 	// Input file metadata (populated after probing).
 	// See media.proto for field details.
 	InputMetadata *InputMetadata `protobuf:"bytes,6,opt,name=input_metadata,json=inputMetadata,proto3,oneof" json:"input_metadata,omitempty"`
-	// Output renditions.
+	// Output renditions, in the same order as the create request's `outputs`.
+	// The order is stable across every read of the job, so indexing into this
+	// array to find the rendition you asked for is safe.
 	Outputs []*JobOutput `protobuf:"bytes,7,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// Total estimated cost (sum of all outputs, calculated after probe).
 	TotalEstimatedCost *float64 `protobuf:"fixed64,8,opt,name=total_estimated_cost,json=totalEstimatedCost,proto3,oneof" json:"total_estimated_cost,omitempty"`
@@ -1985,8 +1987,8 @@ type Job struct {
 	// input_origin_id. Server-set; read-only.
 	InputVideoId string `protobuf:"bytes,34,opt,name=input_video_id,json=inputVideoId,proto3" json:"input_video_id,omitempty"`
 	// Auto-generated chapter tracks, one per output whose generated caption track
-	// had chapters enabled (SubtitleTrack.generate_chapters). Not yet populated:
-	// the auto-chapters feature is rolling out together with generated captions.
+	// had chapters enabled (SubtitleTrack.generate_chapters). Populated once the
+	// auto-chapters pass ships; empty until then.
 	ChapterResults []*ChapterResult `protobuf:"bytes,35,rep,name=chapter_results,json=chapterResults,proto3" json:"chapter_results,omitempty"`
 	// Clip range this job encodes (echoed from request). Absent when the job
 	// encodes the full input.

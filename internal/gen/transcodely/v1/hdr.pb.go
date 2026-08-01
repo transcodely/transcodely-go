@@ -95,7 +95,11 @@ const (
 	HDRMode_HDR_MODE_UNSPECIFIED HDRMode = 0
 	// Preserve input HDR metadata.
 	HDRMode_HDR_MODE_PASSTHROUGH HDRMode = 1
-	// Convert HDR to SDR via tone mapping.
+	// Convert HDR to SDR via tone mapping. Requires an HDR input: whether the
+	// input carries HDR color signaling is only knowable once it has been
+	// probed, so a tone-map job on an SDR source is accepted at create and then
+	// fails at probe time with error code `input_not_hdr`, before any encode
+	// starts.
 	HDRMode_HDR_MODE_TONEMAP HDRMode = 2
 	// Force a specific HDR format on output.
 	HDRMode_HDR_MODE_FORCE HDRMode = 3

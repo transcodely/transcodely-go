@@ -134,19 +134,37 @@ func (EncryptionScheme) EnumDescriptor() ([]byte, []int) {
 
 // Bring Your Own Key configuration.
 // Client provides their own encryption keys.
+//
+// Write-only apart from key_id. Every read — CreateJob, GetJob, ListJobs, the
+// Watch snapshots and the webhook payloads — returns key_id and nothing else;
+// the content key, the PSSH boxes and the FairPlay IV/URI are never echoed
+// back. Because key is a non-optional scalar it still appears on the wire as
+// the empty string; that means "never returned", not "empty key". A job read
+// back from the API therefore cannot be resubmitted verbatim — repopulate key
+// from your own records first.
+//
+// Outputs created before the key id got its own storage column (2026-07-30)
+// carry no key id and return no byok block at all. There is no backfill:
+// recovering their id would mean opening the encrypted config envelope.
 type BYOKConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Key identifier (32 hex characters).
+	//
+	// The one BYOK field returned on reads. It names which key encrypted an
+	// output — the way an API key's prefix and last-4 name the key — so the
+	// key in use can be confirmed without keeping separate records.
 	KeyId string `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
 	// Content encryption key (32 hex characters).
+	//
+	// Write-only: encrypted at rest and never returned on any read.
 	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Widevine PSSH box (base64-encoded, optional).
+	// Widevine PSSH box (base64-encoded, optional). Write-only.
 	PsshWidevine *string `protobuf:"bytes,3,opt,name=pssh_widevine,json=psshWidevine,proto3,oneof" json:"pssh_widevine,omitempty"`
-	// PlayReady PSSH XML (optional).
+	// PlayReady PSSH XML (optional). Write-only.
 	PsshPlayready *string `protobuf:"bytes,4,opt,name=pssh_playready,json=psshPlayready,proto3,oneof" json:"pssh_playready,omitempty"`
-	// FairPlay initialization vector (32 hex characters).
+	// FairPlay initialization vector (32 hex characters). Write-only.
 	FairplayIv *string `protobuf:"bytes,5,opt,name=fairplay_iv,json=fairplayIv,proto3,oneof" json:"fairplay_iv,omitempty"`
-	// FairPlay key server URI (skd:// scheme).
+	// FairPlay key server URI (skd:// scheme). Write-only.
 	FairplayUri   *string `protobuf:"bytes,6,opt,name=fairplay_uri,json=fairplayUri,proto3,oneof" json:"fairplay_uri,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -231,6 +249,9 @@ type KeyServerConfig struct {
 	// License server endpoint URL.
 	LicenseServerUrl string `protobuf:"bytes,1,opt,name=license_server_url,json=licenseServerUrl,proto3" json:"license_server_url,omitempty"`
 	// Authentication token for the key server.
+	//
+	// Write-only: encrypted at rest and never returned on any read. The other
+	// two fields of this message are echoed back normally.
 	AuthToken *string `protobuf:"bytes,2,opt,name=auth_token,json=authToken,proto3,oneof" json:"auth_token,omitempty"`
 	// Content identifier for key derivation.
 	ContentId     *string `protobuf:"bytes,3,opt,name=content_id,json=contentId,proto3,oneof" json:"content_id,omitempty"`
@@ -298,6 +319,9 @@ type DRMConfig struct {
 	// Encryption scheme (required).
 	Scheme EncryptionScheme `protobuf:"varint,2,opt,name=scheme,proto3,enum=transcodely.v1.EncryptionScheme" json:"scheme,omitempty"`
 	// BYOK configuration (mutually exclusive with key_server).
+	//
+	// On reads this is a partial reveal: present with only key_id populated,
+	// or absent entirely for outputs predating the key id column.
 	Byok *BYOKConfig `protobuf:"bytes,3,opt,name=byok,proto3,oneof" json:"byok,omitempty"`
 	// Key server configuration (mutually exclusive with byok).
 	KeyServer *KeyServerConfig `protobuf:"bytes,4,opt,name=key_server,json=keyServer,proto3,oneof" json:"key_server,omitempty"`

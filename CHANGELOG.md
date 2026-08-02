@@ -4,6 +4,13 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.5](https://github.com/transcodely/transcodely-go/compare/v0.3.4...v0.3.5) (2026-08-02)
+
+
+### Features
+
+* **client:** auto_captions on video uploads + captions_cost on Video ([bd26b5d](https://github.com/transcodely/transcodely-go/commit/bd26b5d855c1eb137246d72a0e3c7cb76e19014f))
+
 ## [0.3.4](https://github.com/transcodely/transcodely-go/compare/v0.3.3...v0.3.4) (2026-08-02)
 
 

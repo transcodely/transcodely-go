@@ -25,6 +25,15 @@ type (
 	VariantPricingSnapshot = v1.VariantPricingSnapshot
 	JobFee                 = v1.JobFee
 
+	// JobCostBreakdown itemizes a job's totals — one line per output, one per
+	// fee, the minimum-charge top-up when the per-job floor raised a total, and
+	// a signed adjustment carrying anything the itemized lines don't account
+	// for. The lines always sum to total_estimated_cost / total_actual_cost, so
+	// render a cost from these rather than from the per-output cost fields,
+	// which do not add up to the bill whenever the minimum charge binds.
+	JobCostBreakdown = v1.JobCostBreakdown
+	JobCostLine      = v1.JobCostLine
+
 	Video          = v1.Video
 	VideoRendition = v1.VideoRendition
 	VideoTextTrack = v1.VideoTextTrack
@@ -205,11 +214,12 @@ type (
 // Use the typed aliases below instead of the verbose generated constants.
 
 type (
-	JobStatus      = v1.JobStatus
-	JobPriority    = v1.JobPriority
-	OutputStatus   = v1.OutputStatus
-	OutputFormat   = v1.OutputFormat
-	WatchEventType = v1.WatchEventType
+	JobStatus       = v1.JobStatus
+	JobPriority     = v1.JobPriority
+	JobCostLineType = v1.JobCostLineType
+	OutputStatus    = v1.OutputStatus
+	OutputFormat    = v1.OutputFormat
+	WatchEventType  = v1.WatchEventType
 
 	VideoCodec     = v1.VideoCodec
 	AudioCodec     = v1.AudioCodec
@@ -276,6 +286,17 @@ const (
 	JobPriorityEconomy  = v1.JobPriority_JOB_PRIORITY_ECONOMY
 	JobPriorityStandard = v1.JobPriority_JOB_PRIORITY_STANDARD
 	JobPriorityPremium  = v1.JobPriority_JOB_PRIORITY_PREMIUM
+)
+
+// JobCostLineType values. MinimumCharge is the top-up the per-job floor added
+// on top of the renditions; Adjustment carries any difference between the
+// itemized lines and the stored total, and may be negative.
+const (
+	JobCostLineTypeUnspecified   = v1.JobCostLineType_JOB_COST_LINE_TYPE_UNSPECIFIED
+	JobCostLineTypeOutput        = v1.JobCostLineType_JOB_COST_LINE_TYPE_OUTPUT
+	JobCostLineTypeMinimumCharge = v1.JobCostLineType_JOB_COST_LINE_TYPE_MINIMUM_CHARGE
+	JobCostLineTypeFee           = v1.JobCostLineType_JOB_COST_LINE_TYPE_FEE
+	JobCostLineTypeAdjustment    = v1.JobCostLineType_JOB_COST_LINE_TYPE_ADJUSTMENT
 )
 
 // OutputStatus values.

@@ -4,6 +4,13 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.6](https://github.com/transcodely/transcodely-go/compare/v0.3.5...v0.3.6) (2026-08-08)
+
+
+### Features
+
+* job cost breakdown + video_id from api 4.9.0 ([#36](https://github.com/transcodely/transcodely-go/issues/36)) ([97ea8e9](https://github.com/transcodely/transcodely-go/commit/97ea8e99fc310b27c760529fdccd5c512f0d9d72))
+
 ## [0.3.5](https://github.com/transcodely/transcodely-go/compare/v0.3.4...v0.3.5) (2026-08-02)
 
 

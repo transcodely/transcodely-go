@@ -44,6 +44,12 @@ const (
 	// BillingServiceGetUpcomingInvoiceProcedure is the fully-qualified name of the BillingService's
 	// GetUpcomingInvoice RPC.
 	BillingServiceGetUpcomingInvoiceProcedure = "/transcodely.v1.BillingService/GetUpcomingInvoice"
+	// BillingServiceGetBillingProfileProcedure is the fully-qualified name of the BillingService's
+	// GetBillingProfile RPC.
+	BillingServiceGetBillingProfileProcedure = "/transcodely.v1.BillingService/GetBillingProfile"
+	// BillingServiceCreateBillingPortalSessionProcedure is the fully-qualified name of the
+	// BillingService's CreateBillingPortalSession RPC.
+	BillingServiceCreateBillingPortalSessionProcedure = "/transcodely.v1.BillingService/CreateBillingPortalSession"
 )
 
 // BillingServiceClient is a client for the transcodely.v1.BillingService service.
@@ -64,6 +70,22 @@ type BillingServiceClient interface {
 	// the period ends. Jobs still running are not included at any price; a job
 	// is billed only once it settles.
 	GetUpcomingInvoice(context.Context, *connect.Request[v1.GetUpcomingInvoiceRequest]) (*connect.Response[v1.GetUpcomingInvoiceResponse], error)
+	// Retrieve the organization's billing profile: whether a payment method is
+	// on file, and the card details the payment provider exposes for display.
+	//
+	// Read-only and side-effect free: it never creates provider resources. An
+	// organization that has never touched billing gets payment_method_state
+	// "none" and an empty payment_methods list.
+	GetBillingProfile(context.Context, *connect.Request[v1.GetBillingProfileRequest]) (*connect.Response[v1.GetBillingProfileResponse], error)
+	// Create a short-lived session for the payment provider's hosted billing
+	// portal and return its URL. The portal is where a payment method is added
+	// or replaced and where receipts live; card details never touch the
+	// Transcodely API.
+	//
+	// First call for an organization also links it to the payment provider
+	// (customer + subscription), so the returned portal is already attached to
+	// this organization's billing account. Safe to call repeatedly.
+	CreateBillingPortalSession(context.Context, *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error)
 }
 
 // NewBillingServiceClient constructs a client for the transcodely.v1.BillingService service. By
@@ -95,14 +117,28 @@ func NewBillingServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(billingServiceMethods.ByName("GetUpcomingInvoice")),
 			connect.WithClientOptions(opts...),
 		),
+		getBillingProfile: connect.NewClient[v1.GetBillingProfileRequest, v1.GetBillingProfileResponse](
+			httpClient,
+			baseURL+BillingServiceGetBillingProfileProcedure,
+			connect.WithSchema(billingServiceMethods.ByName("GetBillingProfile")),
+			connect.WithClientOptions(opts...),
+		),
+		createBillingPortalSession: connect.NewClient[v1.CreateBillingPortalSessionRequest, v1.CreateBillingPortalSessionResponse](
+			httpClient,
+			baseURL+BillingServiceCreateBillingPortalSessionProcedure,
+			connect.WithSchema(billingServiceMethods.ByName("CreateBillingPortalSession")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // billingServiceClient implements BillingServiceClient.
 type billingServiceClient struct {
-	listInvoices       *connect.Client[v1.ListInvoicesRequest, v1.ListInvoicesResponse]
-	getInvoice         *connect.Client[v1.GetInvoiceRequest, v1.GetInvoiceResponse]
-	getUpcomingInvoice *connect.Client[v1.GetUpcomingInvoiceRequest, v1.GetUpcomingInvoiceResponse]
+	listInvoices               *connect.Client[v1.ListInvoicesRequest, v1.ListInvoicesResponse]
+	getInvoice                 *connect.Client[v1.GetInvoiceRequest, v1.GetInvoiceResponse]
+	getUpcomingInvoice         *connect.Client[v1.GetUpcomingInvoiceRequest, v1.GetUpcomingInvoiceResponse]
+	getBillingProfile          *connect.Client[v1.GetBillingProfileRequest, v1.GetBillingProfileResponse]
+	createBillingPortalSession *connect.Client[v1.CreateBillingPortalSessionRequest, v1.CreateBillingPortalSessionResponse]
 }
 
 // ListInvoices calls transcodely.v1.BillingService.ListInvoices.
@@ -118,6 +154,16 @@ func (c *billingServiceClient) GetInvoice(ctx context.Context, req *connect.Requ
 // GetUpcomingInvoice calls transcodely.v1.BillingService.GetUpcomingInvoice.
 func (c *billingServiceClient) GetUpcomingInvoice(ctx context.Context, req *connect.Request[v1.GetUpcomingInvoiceRequest]) (*connect.Response[v1.GetUpcomingInvoiceResponse], error) {
 	return c.getUpcomingInvoice.CallUnary(ctx, req)
+}
+
+// GetBillingProfile calls transcodely.v1.BillingService.GetBillingProfile.
+func (c *billingServiceClient) GetBillingProfile(ctx context.Context, req *connect.Request[v1.GetBillingProfileRequest]) (*connect.Response[v1.GetBillingProfileResponse], error) {
+	return c.getBillingProfile.CallUnary(ctx, req)
+}
+
+// CreateBillingPortalSession calls transcodely.v1.BillingService.CreateBillingPortalSession.
+func (c *billingServiceClient) CreateBillingPortalSession(ctx context.Context, req *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error) {
+	return c.createBillingPortalSession.CallUnary(ctx, req)
 }
 
 // BillingServiceHandler is an implementation of the transcodely.v1.BillingService service.
@@ -138,6 +184,22 @@ type BillingServiceHandler interface {
 	// the period ends. Jobs still running are not included at any price; a job
 	// is billed only once it settles.
 	GetUpcomingInvoice(context.Context, *connect.Request[v1.GetUpcomingInvoiceRequest]) (*connect.Response[v1.GetUpcomingInvoiceResponse], error)
+	// Retrieve the organization's billing profile: whether a payment method is
+	// on file, and the card details the payment provider exposes for display.
+	//
+	// Read-only and side-effect free: it never creates provider resources. An
+	// organization that has never touched billing gets payment_method_state
+	// "none" and an empty payment_methods list.
+	GetBillingProfile(context.Context, *connect.Request[v1.GetBillingProfileRequest]) (*connect.Response[v1.GetBillingProfileResponse], error)
+	// Create a short-lived session for the payment provider's hosted billing
+	// portal and return its URL. The portal is where a payment method is added
+	// or replaced and where receipts live; card details never touch the
+	// Transcodely API.
+	//
+	// First call for an organization also links it to the payment provider
+	// (customer + subscription), so the returned portal is already attached to
+	// this organization's billing account. Safe to call repeatedly.
+	CreateBillingPortalSession(context.Context, *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error)
 }
 
 // NewBillingServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -165,6 +227,18 @@ func NewBillingServiceHandler(svc BillingServiceHandler, opts ...connect.Handler
 		connect.WithSchema(billingServiceMethods.ByName("GetUpcomingInvoice")),
 		connect.WithHandlerOptions(opts...),
 	)
+	billingServiceGetBillingProfileHandler := connect.NewUnaryHandler(
+		BillingServiceGetBillingProfileProcedure,
+		svc.GetBillingProfile,
+		connect.WithSchema(billingServiceMethods.ByName("GetBillingProfile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	billingServiceCreateBillingPortalSessionHandler := connect.NewUnaryHandler(
+		BillingServiceCreateBillingPortalSessionProcedure,
+		svc.CreateBillingPortalSession,
+		connect.WithSchema(billingServiceMethods.ByName("CreateBillingPortalSession")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.BillingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case BillingServiceListInvoicesProcedure:
@@ -173,6 +247,10 @@ func NewBillingServiceHandler(svc BillingServiceHandler, opts ...connect.Handler
 			billingServiceGetInvoiceHandler.ServeHTTP(w, r)
 		case BillingServiceGetUpcomingInvoiceProcedure:
 			billingServiceGetUpcomingInvoiceHandler.ServeHTTP(w, r)
+		case BillingServiceGetBillingProfileProcedure:
+			billingServiceGetBillingProfileHandler.ServeHTTP(w, r)
+		case BillingServiceCreateBillingPortalSessionProcedure:
+			billingServiceCreateBillingPortalSessionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -192,4 +270,12 @@ func (UnimplementedBillingServiceHandler) GetInvoice(context.Context, *connect.R
 
 func (UnimplementedBillingServiceHandler) GetUpcomingInvoice(context.Context, *connect.Request[v1.GetUpcomingInvoiceRequest]) (*connect.Response[v1.GetUpcomingInvoiceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.GetUpcomingInvoice is not implemented"))
+}
+
+func (UnimplementedBillingServiceHandler) GetBillingProfile(context.Context, *connect.Request[v1.GetBillingProfileRequest]) (*connect.Response[v1.GetBillingProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.GetBillingProfile is not implemented"))
+}
+
+func (UnimplementedBillingServiceHandler) CreateBillingPortalSession(context.Context, *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.CreateBillingPortalSession is not implemented"))
 }

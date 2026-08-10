@@ -26,6 +26,8 @@ type fakeBillingClient struct {
 	upcoming    *v1.Invoice
 	getInvErr   error
 	upcomingErr error
+	profile     *v1.BillingProfile
+	portal      *v1.BillingPortalSession
 }
 
 func (f *fakeBillingClient) ListInvoices(_ context.Context, req *connect.Request[v1.ListInvoicesRequest]) (*connect.Response[v1.ListInvoicesResponse], error) {
@@ -48,6 +50,14 @@ func (f *fakeBillingClient) GetUpcomingInvoice(_ context.Context, _ *connect.Req
 		return nil, f.upcomingErr
 	}
 	return connect.NewResponse(&v1.GetUpcomingInvoiceResponse{Invoice: f.upcoming}), nil
+}
+
+func (f *fakeBillingClient) GetBillingProfile(_ context.Context, _ *connect.Request[v1.GetBillingProfileRequest]) (*connect.Response[v1.GetBillingProfileResponse], error) {
+	return connect.NewResponse(&v1.GetBillingProfileResponse{Profile: f.profile}), nil
+}
+
+func (f *fakeBillingClient) CreateBillingPortalSession(_ context.Context, _ *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error) {
+	return connect.NewResponse(&v1.CreateBillingPortalSessionResponse{Session: f.portal}), nil
 }
 
 // ListInvoices auto-pages: the cursor from page one is sent on the next fetch,
@@ -145,6 +155,73 @@ func TestBilling_GetUpcomingInvoice(t *testing.T) {
 	}
 	if inv.GetStatus() != InvoiceStatusDraft {
 		t.Errorf("status = %v, want draft", inv.GetStatus())
+	}
+}
+
+// A card the provider will not describe is still a payment method: the state
+// says on_file even though brand and last4 are absent, and that state — not the
+// missing digits — is what callers branch on.
+func TestBilling_GetBillingProfile_OnFileWithoutCardDetails(t *testing.T) {
+	fake := &fakeBillingClient{
+		profile: &v1.BillingProfile{
+			Object:             "billing_profile",
+			OrgId:              "org_f6g7h8i9j0",
+			PaymentMethodState: PaymentMethodStateOnFile,
+			PaymentMethods:     []*v1.BillingPaymentMethod{{Id: "pm_1", Type: "card"}},
+		},
+	}
+	b := newBilling(fake)
+
+	profile, err := b.GetBillingProfile(context.Background())
+	if err != nil {
+		t.Fatalf("GetBillingProfile() error = %v", err)
+	}
+	if profile.GetPaymentMethodState() != PaymentMethodStateOnFile {
+		t.Errorf("state = %v, want on_file", profile.GetPaymentMethodState())
+	}
+	if len(profile.GetPaymentMethods()) != 1 {
+		t.Fatalf("payment methods = %d, want 1", len(profile.GetPaymentMethods()))
+	}
+	if got := profile.GetPaymentMethods()[0]; got.GetBrand() != "" || got.GetLast4() != "" {
+		t.Errorf("brand/last4 = %q/%q, want both empty", got.GetBrand(), got.GetLast4())
+	}
+}
+
+// An org that has never touched billing reports "none" and no methods, without
+// the read creating anything provider-side.
+func TestBilling_GetBillingProfile_NeverBilled(t *testing.T) {
+	fake := &fakeBillingClient{
+		profile: &v1.BillingProfile{PaymentMethodState: PaymentMethodStateNone},
+	}
+	b := newBilling(fake)
+
+	profile, err := b.GetBillingProfile(context.Background())
+	if err != nil {
+		t.Fatalf("GetBillingProfile() error = %v", err)
+	}
+	if profile.GetPaymentMethodState() != PaymentMethodStateNone {
+		t.Errorf("state = %v, want none", profile.GetPaymentMethodState())
+	}
+	if len(profile.GetPaymentMethods()) != 0 {
+		t.Errorf("payment methods = %d, want 0", len(profile.GetPaymentMethods()))
+	}
+}
+
+func TestBilling_CreateBillingPortalSession(t *testing.T) {
+	fake := &fakeBillingClient{
+		portal: &v1.BillingPortalSession{
+			Object: "billing_portal_session",
+			Url:    "https://portal.example/session/abc",
+		},
+	}
+	b := newBilling(fake)
+
+	session, err := b.CreateBillingPortalSession(context.Background())
+	if err != nil {
+		t.Fatalf("CreateBillingPortalSession() error = %v", err)
+	}
+	if session.GetUrl() != "https://portal.example/session/abc" {
+		t.Errorf("url = %q, want the provider session URL", session.GetUrl())
 	}
 }
 

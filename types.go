@@ -71,6 +71,19 @@ type (
 	Invoice         = v1.Invoice
 	InvoiceLineItem = v1.InvoiceLineItem
 
+	// BillingProfile is the organization's payment standing: whether the
+	// provider holds a chargeable payment method, and the methods it will
+	// describe for display. BillingPortalSession is a short-lived link into the
+	// provider's hosted portal, which is the only place a card is added or
+	// replaced — card details never reach this SDK.
+	//
+	// A BillingPaymentMethod frequently arrives with no Brand or Last4 even
+	// when the card works; render it as "Card on file" rather than treating the
+	// absent digits as an error.
+	BillingProfile       = v1.BillingProfile
+	BillingPaymentMethod = v1.BillingPaymentMethod
+	BillingPortalSession = v1.BillingPortalSession
+
 	Organization          = v1.Organization
 	Membership            = v1.Membership
 	MembershipWithUser    = v1.MembershipWithUser
@@ -264,8 +277,9 @@ type (
 
 	AppStatus = v1.AppStatus
 
-	InvoiceStatus   = v1.InvoiceStatus
-	InvoiceLineType = v1.InvoiceLineType
+	InvoiceStatus      = v1.InvoiceStatus
+	InvoiceLineType    = v1.InvoiceLineType
+	PaymentMethodState = v1.PaymentMethodState
 )
 
 // JobStatus values.
@@ -597,4 +611,12 @@ const (
 	InvoiceLineTypeFee         = v1.InvoiceLineType_INVOICE_LINE_TYPE_FEE
 	InvoiceLineTypeMinCharge   = v1.InvoiceLineType_INVOICE_LINE_TYPE_MIN_CHARGE
 	InvoiceLineTypeAdjustment  = v1.InvoiceLineType_INVOICE_LINE_TYPE_ADJUSTMENT
+)
+
+// PaymentMethodState values. OnFile means the payment provider holds a method
+// it can charge — including a method whose card metadata it declines to expose.
+const (
+	PaymentMethodStateUnspecified = v1.PaymentMethodState_PAYMENT_METHOD_STATE_UNSPECIFIED
+	PaymentMethodStateNone        = v1.PaymentMethodState_PAYMENT_METHOD_STATE_NONE
+	PaymentMethodStateOnFile      = v1.PaymentMethodState_PAYMENT_METHOD_STATE_ON_FILE
 )

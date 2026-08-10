@@ -81,3 +81,39 @@ func (b *Billing) GetUpcomingInvoice(ctx context.Context) (*Invoice, error) {
 	}
 	return resp.Msg.GetInvoice(), nil
 }
+
+// GetBillingProfile reports whether the organization has a payment method on
+// file, along with whatever the payment provider will say about it for display.
+//
+// Read-only and side-effect free: it never creates provider resources. An
+// organization that has never touched billing reports
+// [PaymentMethodStateNone] and no payment methods.
+//
+// The state is the only reliable signal. Card brand and last4 are often absent
+// even for a working card, so branch on PaymentMethodState rather than on
+// whether the digits arrived.
+func (b *Billing) GetBillingProfile(ctx context.Context) (*BillingProfile, error) {
+	resp, err := b.client.GetBillingProfile(ctx, connect.NewRequest(&v1.GetBillingProfileRequest{}))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetProfile(), nil
+}
+
+// CreateBillingPortalSession returns a short-lived URL for the payment
+// provider's hosted billing portal — where a customer adds or replaces a
+// payment method and finds their receipts.
+//
+// The first call for an organization also links it to the payment provider, so
+// the portal comes back already attached to this organization's billing
+// account. Safe to call repeatedly.
+//
+// The session is single-use and expires; request a fresh one per visit instead
+// of storing the URL.
+func (b *Billing) CreateBillingPortalSession(ctx context.Context) (*BillingPortalSession, error) {
+	resp, err := b.client.CreateBillingPortalSession(ctx, connect.NewRequest(&v1.CreateBillingPortalSessionRequest{}))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetSession(), nil
+}

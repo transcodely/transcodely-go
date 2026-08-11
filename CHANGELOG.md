@@ -4,6 +4,14 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.7](https://github.com/transcodely/transcodely-go/compare/v0.3.6...v0.3.7) (2026-08-11)
+
+
+### Features
+
+* billing profile + portal sessions from api 4.13.0 ([#39](https://github.com/transcodely/transcodely-go/issues/39)) ([ef3a511](https://github.com/transcodely/transcodely-go/commit/ef3a511f00566dbd7a9a41cba29c0def6f540ccb))
+* billing standing from api 4.15.0 ([#41](https://github.com/transcodely/transcodely-go/issues/41)) ([27f5b7f](https://github.com/transcodely/transcodely-go/commit/27f5b7f4ae5bb297f84f8ca22dd5893cf626c4a5))
+
 ## [0.3.6](https://github.com/transcodely/transcodely-go/compare/v0.3.5...v0.3.6) (2026-08-08)
 
 

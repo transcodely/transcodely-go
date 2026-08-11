@@ -493,9 +493,12 @@ func (x *InvoiceLineItem) GetDimensions() map[string]string {
 // An organization's payment standing: whether the payment provider can charge
 // it, and what the customer sees when they look.
 //
-// Derived live from the payment provider on every read rather than stored, so
-// a card added in the hosted portal shows up on the next request with no
-// polling and no waiting for a webhook.
+// Payment METHODS are read live from the payment provider on every request
+// rather than mirrored locally, so a card added in the hosted portal shows up
+// on the next read with no polling and no waiting for a webhook. STANDING is
+// derived at request time from the organization's stored billing facts
+// (invoice outcomes, observed payment methods) together with that live read, so
+// it is never staler than the page showing it.
 type BillingProfile struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Object type, always "billing_profile".
@@ -512,9 +515,43 @@ type BillingProfile struct {
 	PaymentMethods []*BillingPaymentMethod `protobuf:"bytes,4,rep,name=payment_methods,json=paymentMethods,proto3" json:"payment_methods,omitempty"`
 	// The organization's billing email, which the payment provider requires
 	// before it will accept a payment method. Absent when unset.
-	BillingEmail  *string `protobuf:"bytes,5,opt,name=billing_email,json=billingEmail,proto3,oneof" json:"billing_email,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	BillingEmail *string `protobuf:"bytes,5,opt,name=billing_email,json=billingEmail,proto3,oneof" json:"billing_email,omitempty"`
+	// The organization's derived payment health, and what its usage limits
+	// resolve from. See BillingStanding.
+	Standing BillingStanding `protobuf:"varint,6,opt,name=standing,proto3,enum=transcodely.v1.BillingStanding" json:"standing,omitempty"`
+	// When the current grace window closes. Present if and only if standing is
+	// BILLING_STANDING_GRACE. At this instant the account is already past it —
+	// the deadline is inclusive — and what it becomes is determined by
+	// standing_reason: a card problem decays to FREE, an unpaid invoice to
+	// DELINQUENT.
+	GraceUntil *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=grace_until,json=graceUntil,proto3,oneof" json:"grace_until,omitempty"`
+	// Why standing is what it is, as a stable token to switch on rather than
+	// copy to display:
+	//
+	//	""                         nothing is wrong
+	//	"exempt"                   the org is not required to hold a payment
+	//	                           method, so standing is always active
+	//	"no_payment_method"        none has ever been on file
+	//	"card_expired"             one is on file and its expiry has passed
+	//	"card_removed"             one we had observed is gone
+	//	"invoice_past_due"         an invoice failed to collect
+	//	"repeated_invoice_failure" a second consecutive failure, which earns no
+	//	                           grace window at all
+	//
+	// New tokens may be added; treat an unrecognized one as a generic billing
+	// problem rather than failing.
+	StandingReason string `protobuf:"bytes,8,opt,name=standing_reason,json=standingReason,proto3" json:"standing_reason,omitempty"`
+	// Whether this organization must hold a payment method. FALSE means it is
+	// exempt — organizations predating the requirement are, and an operator may
+	// exempt one deliberately — in which case standing is always
+	// BILLING_STANDING_ACTIVE and no banner or prompt about payment methods
+	// should be shown.
+	//
+	// Exempt is not free service: the organization still accrues usage and is
+	// still invoiced. It simply is not limited for lacking a card on file.
+	PaymentMethodRequired bool `protobuf:"varint,9,opt,name=payment_method_required,json=paymentMethodRequired,proto3" json:"payment_method_required,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *BillingProfile) Reset() {
@@ -580,6 +617,34 @@ func (x *BillingProfile) GetBillingEmail() string {
 		return *x.BillingEmail
 	}
 	return ""
+}
+
+func (x *BillingProfile) GetStanding() BillingStanding {
+	if x != nil {
+		return x.Standing
+	}
+	return BillingStanding_BILLING_STANDING_UNSPECIFIED
+}
+
+func (x *BillingProfile) GetGraceUntil() *timestamppb.Timestamp {
+	if x != nil {
+		return x.GraceUntil
+	}
+	return nil
+}
+
+func (x *BillingProfile) GetStandingReason() string {
+	if x != nil {
+		return x.StandingReason
+	}
+	return ""
+}
+
+func (x *BillingProfile) GetPaymentMethodRequired() bool {
+	if x != nil {
+		return x.PaymentMethodRequired
+	}
+	return false
 }
 
 // One payment method held by the payment provider.
@@ -1288,7 +1353,7 @@ var file_transcodely_v1_billing_proto_rawDesc = string([]byte{
 	0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03,
 	0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x0b, 0x0a,
-	0x09, 0x5f, 0x71, 0x75, 0x61, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x22, 0xa0, 0x02, 0x0a, 0x0e, 0x42,
+	0x09, 0x5f, 0x71, 0x75, 0x61, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x22, 0x90, 0x04, 0x0a, 0x0e, 0x42,
 	0x69, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x12, 0x16, 0x0a,
 	0x06, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x6f,
 	0x62, 0x6a, 0x65, 0x63, 0x74, 0x12, 0x15, 0x0a, 0x06, 0x6f, 0x72, 0x67, 0x5f, 0x69, 0x64, 0x18,
@@ -1305,8 +1370,23 @@ var file_transcodely_v1_billing_proto_rawDesc = string([]byte{
 	0x64, 0x52, 0x0e, 0x70, 0x61, 0x79, 0x6d, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64,
 	0x73, 0x12, 0x28, 0x0a, 0x0d, 0x62, 0x69, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x5f, 0x65, 0x6d, 0x61,
 	0x69, 0x6c, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x0c, 0x62, 0x69, 0x6c, 0x6c,
-	0x69, 0x6e, 0x67, 0x45, 0x6d, 0x61, 0x69, 0x6c, 0x88, 0x01, 0x01, 0x42, 0x10, 0x0a, 0x0e, 0x5f,
-	0x62, 0x69, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x5f, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x22, 0x80, 0x02,
+	0x69, 0x6e, 0x67, 0x45, 0x6d, 0x61, 0x69, 0x6c, 0x88, 0x01, 0x01, 0x12, 0x3b, 0x0a, 0x08, 0x73,
+	0x74, 0x61, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1f, 0x2e,
+	0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x42,
+	0x69, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x53, 0x74, 0x61, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x52, 0x08,
+	0x73, 0x74, 0x61, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x12, 0x40, 0x0a, 0x0b, 0x67, 0x72, 0x61, 0x63,
+	0x65, 0x5f, 0x75, 0x6e, 0x74, 0x69, 0x6c, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e,
+	0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e,
+	0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x48, 0x01, 0x52, 0x0a, 0x67, 0x72, 0x61,
+	0x63, 0x65, 0x55, 0x6e, 0x74, 0x69, 0x6c, 0x88, 0x01, 0x01, 0x12, 0x27, 0x0a, 0x0f, 0x73, 0x74,
+	0x61, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x5f, 0x72, 0x65, 0x61, 0x73, 0x6f, 0x6e, 0x18, 0x08, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0e, 0x73, 0x74, 0x61, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x61,
+	0x73, 0x6f, 0x6e, 0x12, 0x36, 0x0a, 0x17, 0x70, 0x61, 0x79, 0x6d, 0x65, 0x6e, 0x74, 0x5f, 0x6d,
+	0x65, 0x74, 0x68, 0x6f, 0x64, 0x5f, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x64, 0x18, 0x09,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x15, 0x70, 0x61, 0x79, 0x6d, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x74,
+	0x68, 0x6f, 0x64, 0x52, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x64, 0x42, 0x10, 0x0a, 0x0e, 0x5f,
+	0x62, 0x69, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x5f, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x42, 0x0e, 0x0a,
+	0x0c, 0x5f, 0x67, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x75, 0x6e, 0x74, 0x69, 0x6c, 0x22, 0x80, 0x02,
 	0x0a, 0x14, 0x42, 0x69, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x50, 0x61, 0x79, 0x6d, 0x65, 0x6e, 0x74,
 	0x4d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x02, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02,
@@ -1493,8 +1573,9 @@ var file_transcodely_v1_billing_proto_goTypes = []any{
 	(*CreateBillingPortalSessionResponse)(nil), // 17: transcodely.v1.CreateBillingPortalSessionResponse
 	nil,                           // 18: transcodely.v1.InvoiceLineItem.DimensionsEntry
 	(*timestamppb.Timestamp)(nil), // 19: google.protobuf.Timestamp
-	(*PaginationRequest)(nil),     // 20: transcodely.v1.PaginationRequest
-	(*PaginationResponse)(nil),    // 21: transcodely.v1.PaginationResponse
+	(BillingStanding)(0),          // 20: transcodely.v1.BillingStanding
+	(*PaginationRequest)(nil),     // 21: transcodely.v1.PaginationRequest
+	(*PaginationResponse)(nil),    // 22: transcodely.v1.PaginationResponse
 }
 var file_transcodely_v1_billing_proto_depIdxs = []int32{
 	0,  // 0: transcodely.v1.Invoice.status:type_name -> transcodely.v1.InvoiceStatus
@@ -1508,29 +1589,31 @@ var file_transcodely_v1_billing_proto_depIdxs = []int32{
 	18, // 8: transcodely.v1.InvoiceLineItem.dimensions:type_name -> transcodely.v1.InvoiceLineItem.DimensionsEntry
 	2,  // 9: transcodely.v1.BillingProfile.payment_method_state:type_name -> transcodely.v1.PaymentMethodState
 	6,  // 10: transcodely.v1.BillingProfile.payment_methods:type_name -> transcodely.v1.BillingPaymentMethod
-	19, // 11: transcodely.v1.BillingPortalSession.expires_at:type_name -> google.protobuf.Timestamp
-	20, // 12: transcodely.v1.ListInvoicesRequest.pagination:type_name -> transcodely.v1.PaginationRequest
-	3,  // 13: transcodely.v1.ListInvoicesResponse.invoices:type_name -> transcodely.v1.Invoice
-	21, // 14: transcodely.v1.ListInvoicesResponse.pagination:type_name -> transcodely.v1.PaginationResponse
-	3,  // 15: transcodely.v1.GetInvoiceResponse.invoice:type_name -> transcodely.v1.Invoice
-	3,  // 16: transcodely.v1.GetUpcomingInvoiceResponse.invoice:type_name -> transcodely.v1.Invoice
-	5,  // 17: transcodely.v1.GetBillingProfileResponse.profile:type_name -> transcodely.v1.BillingProfile
-	7,  // 18: transcodely.v1.CreateBillingPortalSessionResponse.session:type_name -> transcodely.v1.BillingPortalSession
-	8,  // 19: transcodely.v1.BillingService.ListInvoices:input_type -> transcodely.v1.ListInvoicesRequest
-	10, // 20: transcodely.v1.BillingService.GetInvoice:input_type -> transcodely.v1.GetInvoiceRequest
-	12, // 21: transcodely.v1.BillingService.GetUpcomingInvoice:input_type -> transcodely.v1.GetUpcomingInvoiceRequest
-	14, // 22: transcodely.v1.BillingService.GetBillingProfile:input_type -> transcodely.v1.GetBillingProfileRequest
-	16, // 23: transcodely.v1.BillingService.CreateBillingPortalSession:input_type -> transcodely.v1.CreateBillingPortalSessionRequest
-	9,  // 24: transcodely.v1.BillingService.ListInvoices:output_type -> transcodely.v1.ListInvoicesResponse
-	11, // 25: transcodely.v1.BillingService.GetInvoice:output_type -> transcodely.v1.GetInvoiceResponse
-	13, // 26: transcodely.v1.BillingService.GetUpcomingInvoice:output_type -> transcodely.v1.GetUpcomingInvoiceResponse
-	15, // 27: transcodely.v1.BillingService.GetBillingProfile:output_type -> transcodely.v1.GetBillingProfileResponse
-	17, // 28: transcodely.v1.BillingService.CreateBillingPortalSession:output_type -> transcodely.v1.CreateBillingPortalSessionResponse
-	24, // [24:29] is the sub-list for method output_type
-	19, // [19:24] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	20, // 11: transcodely.v1.BillingProfile.standing:type_name -> transcodely.v1.BillingStanding
+	19, // 12: transcodely.v1.BillingProfile.grace_until:type_name -> google.protobuf.Timestamp
+	19, // 13: transcodely.v1.BillingPortalSession.expires_at:type_name -> google.protobuf.Timestamp
+	21, // 14: transcodely.v1.ListInvoicesRequest.pagination:type_name -> transcodely.v1.PaginationRequest
+	3,  // 15: transcodely.v1.ListInvoicesResponse.invoices:type_name -> transcodely.v1.Invoice
+	22, // 16: transcodely.v1.ListInvoicesResponse.pagination:type_name -> transcodely.v1.PaginationResponse
+	3,  // 17: transcodely.v1.GetInvoiceResponse.invoice:type_name -> transcodely.v1.Invoice
+	3,  // 18: transcodely.v1.GetUpcomingInvoiceResponse.invoice:type_name -> transcodely.v1.Invoice
+	5,  // 19: transcodely.v1.GetBillingProfileResponse.profile:type_name -> transcodely.v1.BillingProfile
+	7,  // 20: transcodely.v1.CreateBillingPortalSessionResponse.session:type_name -> transcodely.v1.BillingPortalSession
+	8,  // 21: transcodely.v1.BillingService.ListInvoices:input_type -> transcodely.v1.ListInvoicesRequest
+	10, // 22: transcodely.v1.BillingService.GetInvoice:input_type -> transcodely.v1.GetInvoiceRequest
+	12, // 23: transcodely.v1.BillingService.GetUpcomingInvoice:input_type -> transcodely.v1.GetUpcomingInvoiceRequest
+	14, // 24: transcodely.v1.BillingService.GetBillingProfile:input_type -> transcodely.v1.GetBillingProfileRequest
+	16, // 25: transcodely.v1.BillingService.CreateBillingPortalSession:input_type -> transcodely.v1.CreateBillingPortalSessionRequest
+	9,  // 26: transcodely.v1.BillingService.ListInvoices:output_type -> transcodely.v1.ListInvoicesResponse
+	11, // 27: transcodely.v1.BillingService.GetInvoice:output_type -> transcodely.v1.GetInvoiceResponse
+	13, // 28: transcodely.v1.BillingService.GetUpcomingInvoice:output_type -> transcodely.v1.GetUpcomingInvoiceResponse
+	15, // 29: transcodely.v1.BillingService.GetBillingProfile:output_type -> transcodely.v1.GetBillingProfileResponse
+	17, // 30: transcodely.v1.BillingService.CreateBillingPortalSession:output_type -> transcodely.v1.CreateBillingPortalSessionResponse
+	26, // [26:31] is the sub-list for method output_type
+	21, // [21:26] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_transcodely_v1_billing_proto_init() }

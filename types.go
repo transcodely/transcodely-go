@@ -280,6 +280,7 @@ type (
 	InvoiceStatus      = v1.InvoiceStatus
 	InvoiceLineType    = v1.InvoiceLineType
 	PaymentMethodState = v1.PaymentMethodState
+	BillingStanding    = v1.BillingStanding
 )
 
 // JobStatus values.
@@ -619,4 +620,17 @@ const (
 	PaymentMethodStateUnspecified = v1.PaymentMethodState_PAYMENT_METHOD_STATE_UNSPECIFIED
 	PaymentMethodStateNone        = v1.PaymentMethodState_PAYMENT_METHOD_STATE_NONE
 	PaymentMethodStateOnFile      = v1.PaymentMethodState_PAYMENT_METHOD_STATE_ON_FILE
+)
+
+// BillingStanding values. Derived from the organization's billing facts, never
+// assigned — there is no API to set one. Free and Delinquent both resolve usage
+// limits to the free tier's, but Delinquent still bills; neither is a
+// suspension. An organization exempt from the payment-method requirement always
+// reports Active.
+const (
+	BillingStandingUnspecified = v1.BillingStanding_BILLING_STANDING_UNSPECIFIED
+	BillingStandingFree        = v1.BillingStanding_BILLING_STANDING_FREE
+	BillingStandingActive      = v1.BillingStanding_BILLING_STANDING_ACTIVE
+	BillingStandingGrace       = v1.BillingStanding_BILLING_STANDING_GRACE
+	BillingStandingDelinquent  = v1.BillingStanding_BILLING_STANDING_DELINQUENT
 )

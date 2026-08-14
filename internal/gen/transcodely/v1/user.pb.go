@@ -84,9 +84,10 @@ func (UserStatus) EnumDescriptor() ([]byte, []int) {
 	return file_transcodely_v1_user_proto_rawDescGZIP(), []int{0}
 }
 
-// User approval status. Until we have a payment gate, every new sign-up is
-// held in PENDING and must be approved by a staff member before they can use
-// the platform.
+// Dashboard access review status. New sign-ups are approved automatically
+// unless the platform is operating in manual-review mode, in which case they
+// stay PENDING until a staff member approves them. Staff can reject a user at
+// any time to revoke dashboard access.
 type UserApprovalStatus int32
 
 const (
@@ -163,12 +164,12 @@ type User struct {
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When the user was last updated.
 	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// Whether this user has been approved by a staff member.
-	// New sign-ups default to PENDING.
+	// Whether this user may use the dashboard.
 	ApprovalStatus UserApprovalStatus `protobuf:"varint,11,opt,name=approval_status,json=approvalStatus,proto3,enum=transcodely.v1.UserApprovalStatus" json:"approval_status,omitempty"`
 	// When approval was decided (set when status flipped from PENDING).
 	ApprovalDecidedAt *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=approval_decided_at,json=approvalDecidedAt,proto3,oneof" json:"approval_decided_at,omitempty"`
-	// The staff member's user_id who decided approval.
+	// The staff member's user_id who decided approval. Absent when the user was
+	// approved automatically rather than by a person.
 	ApprovalDecidedByUserId *string `protobuf:"bytes,13,opt,name=approval_decided_by_user_id,json=approvalDecidedByUserId,proto3,oneof" json:"approval_decided_by_user_id,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache

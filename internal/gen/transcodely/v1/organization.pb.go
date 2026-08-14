@@ -110,10 +110,14 @@ type Organization struct {
 	PlanId *string `protobuf:"bytes,9,opt,name=plan_id,json=planId,proto3,oneof" json:"plan_id,omitempty"`
 	// Display name of the org's plan. Absent exactly when plan_id is.
 	PlanName *string `protobuf:"bytes,10,opt,name=plan_name,json=planName,proto3,oneof" json:"plan_name,omitempty"`
-	// Whether this org must have a payment method on file. NOT ENFORCED: no
-	// create, dispatch or delivery path reads this today. It records intent
-	// ahead of the release that starts requiring one, at which point orgs
-	// already carrying false are the grandfathered population.
+	// Whether this org must have a payment method on file. ENFORCED: with no
+	// usable payment method a required org derives a restricting
+	// billing_standing, and its jobs resolve to the free tier's limits rather
+	// than to its plan.
+	//
+	// Organizations created before the enforcement release carry false and are
+	// the grandfathered population — unaffected until an operator turns it on.
+	// A comped org (billing_exempt) is off the hook whatever this says.
 	PaymentMethodRequired bool `protobuf:"varint,11,opt,name=payment_method_required,json=paymentMethodRequired,proto3" json:"payment_method_required,omitempty"`
 	// When the org was explicitly exempted from the payment-method requirement —
 	// stamped when payment_method_required is turned off, cleared when it is
@@ -123,12 +127,17 @@ type Organization struct {
 	GrandfatheredAt *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=grandfathered_at,json=grandfatheredAt,proto3,oneof" json:"grandfathered_at,omitempty"`
 	// Derived payment health. Always BILLING_STANDING_ACTIVE when
 	// payment_method_required is false, whatever the facts below say.
+	//
+	// Filled on admin reads, and on OrganizationService.Get for a member of the
+	// org (JWT/portal actors). Absent on the API-key read path, which gets a
+	// refusal code on the create instead, and on List.
 	BillingStanding BillingStanding `protobuf:"varint,13,opt,name=billing_standing,json=billingStanding,proto3,enum=transcodely.v1.BillingStanding" json:"billing_standing,omitempty"`
 	// When the current grace window closes, present only while billing_standing
-	// is BILLING_STANDING_GRACE.
+	// is BILLING_STANDING_GRACE. Filled wherever billing_standing is.
 	GraceUntil *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=grace_until,json=graceUntil,proto3,oneof" json:"grace_until,omitempty"`
 	// Stable token explaining billing_standing; same vocabulary as
-	// BillingProfile.standing_reason.
+	// BillingProfile.standing_reason. ADMIN reads only — tokens like
+	// card_expired are payment-method detail, which a plain member never sees.
 	StandingReason string `protobuf:"bytes,15,opt,name=standing_reason,json=standingReason,proto3" json:"standing_reason,omitempty"`
 	// Whether a dunning episode is open right now — the payment provider has an
 	// unpaid invoice for this org and is retrying it. TRUE together with

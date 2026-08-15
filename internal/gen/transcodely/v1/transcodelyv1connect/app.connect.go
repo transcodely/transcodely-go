@@ -51,6 +51,9 @@ const (
 	// AppServiceUpdateHostingConfigProcedure is the fully-qualified name of the AppService's
 	// UpdateHostingConfig RPC.
 	AppServiceUpdateHostingConfigProcedure = "/transcodely.v1.AppService/UpdateHostingConfig"
+	// AppServiceUpdatePlayerConfigProcedure is the fully-qualified name of the AppService's
+	// UpdatePlayerConfig RPC.
+	AppServiceUpdatePlayerConfigProcedure = "/transcodely.v1.AppService/UpdatePlayerConfig"
 	// AppServiceUpdateSpendLimitProcedure is the fully-qualified name of the AppService's
 	// UpdateSpendLimit RPC.
 	AppServiceUpdateSpendLimitProcedure = "/transcodely.v1.AppService/UpdateSpendLimit"
@@ -79,6 +82,11 @@ type AppServiceClient interface {
 	// Merges provided fields into the existing hosting config.
 	// Returns failed_precondition if hosting is not enabled.
 	UpdateHostingConfig(context.Context, *connect.Request[v1.UpdateHostingConfigRequest]) (*connect.Response[v1.UpdateHostingConfigResponse], error)
+	// Update player configuration for an app.
+	// Merges provided fields into the existing player config. Applies to the
+	// hosted player and embeds for every video in the app. Unlike hosting
+	// config, this does not require hosting to be enabled first.
+	UpdatePlayerConfig(context.Context, *connect.Request[v1.UpdatePlayerConfigRequest]) (*connect.Response[v1.UpdatePlayerConfigResponse], error)
 	// Set or clear an app's monthly spend limit for transcoding charges.
 	// Providing monthly_spend_limit_eur sets the cap (must be > 0); omitting it
 	// clears the cap and returns the app to unlimited. Returns the updated app.
@@ -140,6 +148,12 @@ func NewAppServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(appServiceMethods.ByName("UpdateHostingConfig")),
 			connect.WithClientOptions(opts...),
 		),
+		updatePlayerConfig: connect.NewClient[v1.UpdatePlayerConfigRequest, v1.UpdatePlayerConfigResponse](
+			httpClient,
+			baseURL+AppServiceUpdatePlayerConfigProcedure,
+			connect.WithSchema(appServiceMethods.ByName("UpdatePlayerConfig")),
+			connect.WithClientOptions(opts...),
+		),
 		updateSpendLimit: connect.NewClient[v1.UpdateSpendLimitRequest, v1.UpdateSpendLimitResponse](
 			httpClient,
 			baseURL+AppServiceUpdateSpendLimitProcedure,
@@ -164,6 +178,7 @@ type appServiceClient struct {
 	archive             *connect.Client[v1.ArchiveAppRequest, v1.ArchiveAppResponse]
 	enableHosting       *connect.Client[v1.EnableHostingRequest, v1.EnableHostingResponse]
 	updateHostingConfig *connect.Client[v1.UpdateHostingConfigRequest, v1.UpdateHostingConfigResponse]
+	updatePlayerConfig  *connect.Client[v1.UpdatePlayerConfigRequest, v1.UpdatePlayerConfigResponse]
 	updateSpendLimit    *connect.Client[v1.UpdateSpendLimitRequest, v1.UpdateSpendLimitResponse]
 	getSpend            *connect.Client[v1.GetSpendRequest, v1.GetSpendResponse]
 }
@@ -203,6 +218,11 @@ func (c *appServiceClient) UpdateHostingConfig(ctx context.Context, req *connect
 	return c.updateHostingConfig.CallUnary(ctx, req)
 }
 
+// UpdatePlayerConfig calls transcodely.v1.AppService.UpdatePlayerConfig.
+func (c *appServiceClient) UpdatePlayerConfig(ctx context.Context, req *connect.Request[v1.UpdatePlayerConfigRequest]) (*connect.Response[v1.UpdatePlayerConfigResponse], error) {
+	return c.updatePlayerConfig.CallUnary(ctx, req)
+}
+
 // UpdateSpendLimit calls transcodely.v1.AppService.UpdateSpendLimit.
 func (c *appServiceClient) UpdateSpendLimit(ctx context.Context, req *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error) {
 	return c.updateSpendLimit.CallUnary(ctx, req)
@@ -234,6 +254,11 @@ type AppServiceHandler interface {
 	// Merges provided fields into the existing hosting config.
 	// Returns failed_precondition if hosting is not enabled.
 	UpdateHostingConfig(context.Context, *connect.Request[v1.UpdateHostingConfigRequest]) (*connect.Response[v1.UpdateHostingConfigResponse], error)
+	// Update player configuration for an app.
+	// Merges provided fields into the existing player config. Applies to the
+	// hosted player and embeds for every video in the app. Unlike hosting
+	// config, this does not require hosting to be enabled first.
+	UpdatePlayerConfig(context.Context, *connect.Request[v1.UpdatePlayerConfigRequest]) (*connect.Response[v1.UpdatePlayerConfigResponse], error)
 	// Set or clear an app's monthly spend limit for transcoding charges.
 	// Providing monthly_spend_limit_eur sets the cap (must be > 0); omitting it
 	// clears the cap and returns the app to unlimited. Returns the updated app.
@@ -291,6 +316,12 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(appServiceMethods.ByName("UpdateHostingConfig")),
 		connect.WithHandlerOptions(opts...),
 	)
+	appServiceUpdatePlayerConfigHandler := connect.NewUnaryHandler(
+		AppServiceUpdatePlayerConfigProcedure,
+		svc.UpdatePlayerConfig,
+		connect.WithSchema(appServiceMethods.ByName("UpdatePlayerConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
 	appServiceUpdateSpendLimitHandler := connect.NewUnaryHandler(
 		AppServiceUpdateSpendLimitProcedure,
 		svc.UpdateSpendLimit,
@@ -319,6 +350,8 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 			appServiceEnableHostingHandler.ServeHTTP(w, r)
 		case AppServiceUpdateHostingConfigProcedure:
 			appServiceUpdateHostingConfigHandler.ServeHTTP(w, r)
+		case AppServiceUpdatePlayerConfigProcedure:
+			appServiceUpdatePlayerConfigHandler.ServeHTTP(w, r)
 		case AppServiceUpdateSpendLimitProcedure:
 			appServiceUpdateSpendLimitHandler.ServeHTTP(w, r)
 		case AppServiceGetSpendProcedure:
@@ -358,6 +391,10 @@ func (UnimplementedAppServiceHandler) EnableHosting(context.Context, *connect.Re
 
 func (UnimplementedAppServiceHandler) UpdateHostingConfig(context.Context, *connect.Request[v1.UpdateHostingConfigRequest]) (*connect.Response[v1.UpdateHostingConfigResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.AppService.UpdateHostingConfig is not implemented"))
+}
+
+func (UnimplementedAppServiceHandler) UpdatePlayerConfig(context.Context, *connect.Request[v1.UpdatePlayerConfigRequest]) (*connect.Response[v1.UpdatePlayerConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.AppService.UpdatePlayerConfig is not implemented"))
 }
 
 func (UnimplementedAppServiceHandler) UpdateSpendLimit(context.Context, *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error) {

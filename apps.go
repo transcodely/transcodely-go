@@ -101,6 +101,21 @@ func (a *Apps) UpdateHostingConfig(ctx context.Context, params *AppUpdateHosting
 	return resp.Msg.GetApp(), nil
 }
 
+// UpdatePlayerConfig merges fields into the app's hosted-player configuration
+// (currently caption rendering: colors, opacity, text-size multiplier).
+// Unset fields keep their stored value; an empty color string clears back to
+// the player default. Works before hosting is enabled.
+func (a *Apps) UpdatePlayerConfig(ctx context.Context, params *AppUpdatePlayerConfigParams) (*App, error) {
+	if params == nil {
+		params = &AppUpdatePlayerConfigParams{}
+	}
+	resp, err := a.client.UpdatePlayerConfig(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetApp(), nil
+}
+
 // UpdateSpendLimit sets or clears an app's monthly transcoding spend cap from an
 // explicit params struct. Set Params.MonthlySpendLimitEur (via proto.Float64) to
 // a value greater than 0 to set the cap, or leave it nil to clear it and return

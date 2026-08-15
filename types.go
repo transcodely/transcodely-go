@@ -63,6 +63,15 @@ type (
 	AutoProfileDefaults = v1.AutoProfileDefaults
 	AppSpend            = v1.GetSpendResponse
 
+	// PlayerConfig configures the hosted player and embeds for every video in
+	// an app; CaptionStyle is its caption-rendering half (background color and
+	// opacity, text color, text-size multiplier). Update via
+	// client.Apps.UpdatePlayerConfig — merge semantics: unset fields keep
+	// their stored value, an empty color string clears back to the player
+	// default.
+	PlayerConfig = v1.PlayerConfig
+	CaptionStyle = v1.CaptionStyle
+
 	APIKey = v1.APIKey
 
 	// Invoice is one billing period's statement; InvoiceLineItem is one line of
@@ -188,6 +197,7 @@ type (
 	AppUpdateParams              = v1.UpdateAppRequest
 	AppListParams                = v1.ListAppsRequest
 	AppUpdateHostingConfigParams = v1.UpdateHostingConfigRequest
+	AppUpdatePlayerConfigParams  = v1.UpdatePlayerConfigRequest
 	AppUpdateSpendLimitParams    = v1.UpdateSpendLimitRequest
 	AppUpdateSpendLimitResponse  = v1.UpdateSpendLimitResponse
 	AppGetSpendParams            = v1.GetSpendRequest

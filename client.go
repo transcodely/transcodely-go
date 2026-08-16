@@ -78,8 +78,9 @@ type Client struct {
 	WebhookEndpoints *WebhookEndpoints
 	Events           *Events
 
-	// Billing reads the organization's invoices. Requires a dashboard session
-	// token for an org owner plus [WithOrganization]; API keys are rejected.
+	// Billing reads the organization's invoices, billing profile, budget and
+	// outstanding balance. Requires a dashboard session token for an org owner
+	// plus [WithOrganization]; API keys are rejected.
 	Billing *Billing
 }
 

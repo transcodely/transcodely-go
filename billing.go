@@ -25,9 +25,12 @@ import (
 //	client, err := transcodely.New(sessionToken,
 //	    transcodely.WithOrganization("org_f6g7h8i9j0"))
 //
-// Everything here is read-only. An invoice is the record of what happened in a
+// Invoices are read-only. An invoice is the record of what happened in a
 // billing period, generated automatically when the period closes; there is no
-// API to create, edit, or delete one.
+// API to create, edit, or delete one. The two writes this namespace does have
+// do not author statements either — [Billing.UpdateBudget] sets the customer's
+// own alerting threshold, and [Billing.SettleOutstandingBalance] closes the
+// period early so the balance owed can be charged now.
 type Billing struct {
 	client transcodelyv1connect.BillingServiceClient
 }
@@ -116,4 +119,101 @@ func (b *Billing) CreateBillingPortalSession(ctx context.Context) (*BillingPorta
 		return nil, fromConnectError(err)
 	}
 	return resp.Msg.GetSession(), nil
+}
+
+// GetBudget returns the organization's monthly budget together with the spend
+// it is measured against — everything a budget card needs, in one call.
+//
+// A budget is telemetry the customer sets for themselves: crossing 100% sends
+// an email and changes nothing else. No job is refused, no video stops playing.
+// The hard cap is the per-app spend limit ([Apps.SetSpendLimit]), which is a
+// different number on a different scope.
+//
+// Always returns a budget. An organization that has never set one gets AmountEur
+// absent with SpentEur still populated, so the current period's spend can be
+// shown before a budget exists.
+func (b *Billing) GetBudget(ctx context.Context) (*Budget, error) {
+	resp, err := b.client.GetBudget(ctx, connect.NewRequest(&v1.GetBudgetRequest{}))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetBudget(), nil
+}
+
+// UpdateBudget sets or clears the organization's monthly budget and returns it
+// with current-period spend recomputed. Omitting params.AmountEur clears the
+// budget; prefer [Billing.SetBudget] and [Billing.ClearBudget] for that.
+//
+// Changing the amount never re-sends an alert step already sent this period —
+// see Budget.NotifiedSteps.
+func (b *Billing) UpdateBudget(ctx context.Context, params *BudgetUpdateParams) (*Budget, error) {
+	if params == nil {
+		params = &BudgetUpdateParams{}
+	}
+	resp, err := b.client.UpdateBudget(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetBudget(), nil
+}
+
+// SetBudget sets the organization's monthly budget in EUR (must be greater than
+// 0). Alert emails go out at 50%, 80% and 100% of it, once each per billing
+// period. Nothing is enforced at any step.
+func (b *Billing) SetBudget(ctx context.Context, amountEUR float64) (*Budget, error) {
+	return b.UpdateBudget(ctx, &BudgetUpdateParams{AmountEur: proto.Float64(amountEUR)})
+}
+
+// ClearBudget removes the organization's monthly budget, which is the only way
+// to turn the alert emails off. It omits the optional amount field, which the
+// server treats as "clear any existing budget". The returned Budget still
+// carries the period's spend, with AmountEur absent.
+func (b *Billing) ClearBudget(ctx context.Context) (*Budget, error) {
+	return b.UpdateBudget(ctx, &BudgetUpdateParams{})
+}
+
+// GetOutstandingBalance returns usage that has been accrued but not yet billed,
+// together with the threshold it is measured against.
+//
+// Distinct from [Billing.GetUpcomingInvoice], which shows what the CURRENT
+// PERIOD has accrued: this shows what is UNSETTLED, which also carries anything
+// an earlier period left uncaptured, and it is the number that decides whether
+// new jobs are admitted. It drops to zero when a statement is paid; Budget's
+// SpentEur does not.
+//
+// Reminder emails go out at 80%, 100%, 125%, 150% and 175% of the threshold and
+// nothing is restricted at any of them. Only at HardStopCents — twice the
+// threshold — does Blocked become true and new jobs are refused with error code
+// "outstanding_balance_exceeded". Even then queued work finishes, videos keep
+// playing, uploads keep working, and jobs can still be canceled.
+//
+// Always returns a balance. An organization that owes nothing gets one with
+// OutstandingCents 0 and its threshold still populated.
+func (b *Billing) GetOutstandingBalance(ctx context.Context) (*OutstandingBalance, error) {
+	resp, err := b.client.GetOutstandingBalance(ctx, connect.NewRequest(&v1.GetOutstandingBalanceRequest{}))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetBalance(), nil
+}
+
+// SettleOutstandingBalance pays the outstanding balance now, without waiting for
+// the period to end. It closes the current period at this instant and produces a
+// real statement for everything owed, which the payment provider then charges.
+//
+// It takes no amount on purpose: the figure is whatever the ledger says when the
+// settlement runs, so a stale page cannot pay less than is owed. On success the
+// balance is zero, any admission block is lifted immediately, and the returned
+// result carries both the new statement and the new balance — no second call.
+//
+// Check OutstandingBalance.SettlementAvailable before offering this: a
+// deployment with the settlement rail switched off returns a
+// [PreconditionError] with error code "settlement_unavailable", and one with
+// nothing owed returns "nothing_outstanding".
+func (b *Billing) SettleOutstandingBalance(ctx context.Context) (*SettlementResult, error) {
+	resp, err := b.client.SettleOutstandingBalance(ctx, connect.NewRequest(&v1.SettleOutstandingBalanceRequest{}))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg, nil
 }

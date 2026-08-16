@@ -644,6 +644,181 @@ func (BillingStanding) EnumDescriptor() ([]byte, []int) {
 	return file_transcodely_v1_common_proto_rawDescGZIP(), []int{9}
 }
 
+// How AUTOMATION is allowed to treat an organization.
+//
+// Orthogonal to BillingStanding, and the distinction is the whole point.
+// Standing is a derived FACT about payment health. Treatment is a commercial
+// DECISION about whether a cron may act on that fact — email the customer,
+// block their creates, suspend them. An account can be in dunning and
+// untouchable at the same time.
+//
+// ASSIGNED, never derived: an operator says what a relationship is, through the
+// audited admin RPC. Admin surfaces only; a customer does not learn from an API
+// field how patiently we treat them.
+type BillingTreatment int32
+
+const (
+	BillingTreatment_BILLING_TREATMENT_UNSPECIFIED BillingTreatment = 0
+	// The default and the full lifecycle: the dunning ladder, the soft limit,
+	// suspension, every customer email, and the dispute posture.
+	BillingTreatment_BILLING_TREATMENT_NORMAL BillingTreatment = 1
+	// Billed COMPLETELY NORMALLY — payment method on file, monthly statements,
+	// real charges — and exempt from every automated interruption. A failed
+	// payment or a dispute on one of these routes to the founder instead of to
+	// the customer, so it becomes a conversation rather than a cutoff.
+	//
+	// Requires a payment method on file: this is a promise not to interrupt
+	// someone who pays, not a way to run an account with no card.
+	BillingTreatment_BILLING_TREATMENT_TRUSTED BillingTreatment = 2
+	// Grandfather / comp semantics: not billed, not enforced. Internal, dogfood
+	// and legacy accounts. Selecting it also maintains payment_method_required
+	// and billing_exempt, in the same transaction, so the standing derivation and
+	// this value can never describe different postures.
+	BillingTreatment_BILLING_TREATMENT_EXEMPT BillingTreatment = 3
+)
+
+// Enum value maps for BillingTreatment.
+var (
+	BillingTreatment_name = map[int32]string{
+		0: "BILLING_TREATMENT_UNSPECIFIED",
+		1: "BILLING_TREATMENT_NORMAL",
+		2: "BILLING_TREATMENT_TRUSTED",
+		3: "BILLING_TREATMENT_EXEMPT",
+	}
+	BillingTreatment_value = map[string]int32{
+		"BILLING_TREATMENT_UNSPECIFIED": 0,
+		"BILLING_TREATMENT_NORMAL":      1,
+		"BILLING_TREATMENT_TRUSTED":     2,
+		"BILLING_TREATMENT_EXEMPT":      3,
+	}
+)
+
+func (x BillingTreatment) Enum() *BillingTreatment {
+	p := new(BillingTreatment)
+	*p = x
+	return p
+}
+
+func (x BillingTreatment) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BillingTreatment) Descriptor() protoreflect.EnumDescriptor {
+	return file_transcodely_v1_common_proto_enumTypes[10].Descriptor()
+}
+
+func (BillingTreatment) Type() protoreflect.EnumType {
+	return &file_transcodely_v1_common_proto_enumTypes[10]
+}
+
+func (x BillingTreatment) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BillingTreatment.Descriptor instead.
+func (BillingTreatment) EnumDescriptor() ([]byte, []int) {
+	return file_transcodely_v1_common_proto_rawDescGZIP(), []int{10}
+}
+
+// How far the CONSEQUENCES of an unpaid statement have progressed.
+//
+// Deliberately NOT a fifth BillingStanding. Standing is payment HEALTH, derived
+// from facts. This is what we have DONE about it, and it needs states standing
+// cannot express: "new jobs refused but playback still serving" and "suspended"
+// are consequences, not healths, and an account can be delinquent for weeks at
+// any of them.
+//
+// Every rung's timing derives from the episode's own start, and the schedule is
+// a set of Go constants (domain.DunningStage) rather than configuration — the
+// day counts below are documentation of that policy, not a second copy of it.
+//
+// ADMIN SURFACES ONLY in this release. A customer is told what is happening to
+// their account in the email that accompanies each rung; they do not read the
+// ladder's internal vocabulary out of an API.
+type DunningStage int32
+
+const (
+	DunningStage_DUNNING_STAGE_UNSPECIFIED DunningStage = 0
+	// The resting state: no episode, or one that a payment closed.
+	DunningStage_DUNNING_STAGE_NONE DunningStage = 1
+	// Day 0 — the provider's charge failed and it is retrying on its own
+	// schedule. Full service continues; the customer is told, and nothing else
+	// happens.
+	DunningStage_DUNNING_STAGE_PAST_DUE DunningStage = 2
+	// Day 3 — still unpaid, and the mail now names the date service will be
+	// limited. Full service continues.
+	DunningStage_DUNNING_STAGE_WARNED DunningStage = 3
+	// Day 7 — NEW jobs are refused. Everything already queued or running
+	// finishes, playback keeps serving, and the dashboard stays fully readable.
+	DunningStage_DUNNING_STAGE_SOFT_LIMITED DunningStage = 4
+	// Day 14 — the organization is suspended: API keys refused, public playback
+	// stopped. Dashboard reads stay open and Cancel stays allowed, so a suspended
+	// customer can still see what they owe, pay it, and stop their own meter.
+	DunningStage_DUNNING_STAGE_SUSPENDED DunningStage = 5
+	// Day 45 — the T-14 notice naming the exact date stored media goes. Nothing
+	// new is enforced here; the mail IS the event.
+	DunningStage_DUNNING_STAGE_DELETION_WARNED DunningStage = 6
+	// Day 60 — statements marked uncollectible, ledger entries flagged, stored
+	// media eligible for deletion. The organization stays suspended. Terminal for
+	// this episode.
+	//
+	// Also the state an operator's manual write-off produces: the same end state,
+	// reached earlier and by a human. Which of the two happened is answered by
+	// the audit log, not by this field.
+	DunningStage_DUNNING_STAGE_WRITTEN_OFF DunningStage = 7
+)
+
+// Enum value maps for DunningStage.
+var (
+	DunningStage_name = map[int32]string{
+		0: "DUNNING_STAGE_UNSPECIFIED",
+		1: "DUNNING_STAGE_NONE",
+		2: "DUNNING_STAGE_PAST_DUE",
+		3: "DUNNING_STAGE_WARNED",
+		4: "DUNNING_STAGE_SOFT_LIMITED",
+		5: "DUNNING_STAGE_SUSPENDED",
+		6: "DUNNING_STAGE_DELETION_WARNED",
+		7: "DUNNING_STAGE_WRITTEN_OFF",
+	}
+	DunningStage_value = map[string]int32{
+		"DUNNING_STAGE_UNSPECIFIED":     0,
+		"DUNNING_STAGE_NONE":            1,
+		"DUNNING_STAGE_PAST_DUE":        2,
+		"DUNNING_STAGE_WARNED":          3,
+		"DUNNING_STAGE_SOFT_LIMITED":    4,
+		"DUNNING_STAGE_SUSPENDED":       5,
+		"DUNNING_STAGE_DELETION_WARNED": 6,
+		"DUNNING_STAGE_WRITTEN_OFF":     7,
+	}
+)
+
+func (x DunningStage) Enum() *DunningStage {
+	p := new(DunningStage)
+	*p = x
+	return p
+}
+
+func (x DunningStage) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DunningStage) Descriptor() protoreflect.EnumDescriptor {
+	return file_transcodely_v1_common_proto_enumTypes[11].Descriptor()
+}
+
+func (DunningStage) Type() protoreflect.EnumType {
+	return &file_transcodely_v1_common_proto_enumTypes[11]
+}
+
+func (x DunningStage) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DunningStage.Descriptor instead.
+func (DunningStage) EnumDescriptor() ([]byte, []int) {
+	return file_transcodely_v1_common_proto_rawDescGZIP(), []int{11}
+}
+
 // Pagination request parameters.
 type PaginationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1012,7 +1187,32 @@ var file_transcodely_v1_common_proto_rawDesc = string([]byte{
 	0x1a, 0x0a, 0x16, 0x42, 0x49, 0x4c, 0x4c, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x4e, 0x44,
 	0x49, 0x4e, 0x47, 0x5f, 0x47, 0x52, 0x41, 0x43, 0x45, 0x10, 0x03, 0x12, 0x1f, 0x0a, 0x1b, 0x42,
 	0x49, 0x4c, 0x4c, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x4e, 0x44, 0x49, 0x4e, 0x47, 0x5f,
-	0x44, 0x45, 0x4c, 0x49, 0x4e, 0x51, 0x55, 0x45, 0x4e, 0x54, 0x10, 0x04, 0x42, 0xcb, 0x01, 0x0a,
+	0x44, 0x45, 0x4c, 0x49, 0x4e, 0x51, 0x55, 0x45, 0x4e, 0x54, 0x10, 0x04, 0x2a, 0x90, 0x01, 0x0a,
+	0x10, 0x42, 0x69, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x54, 0x72, 0x65, 0x61, 0x74, 0x6d, 0x65, 0x6e,
+	0x74, 0x12, 0x21, 0x0a, 0x1d, 0x42, 0x49, 0x4c, 0x4c, 0x49, 0x4e, 0x47, 0x5f, 0x54, 0x52, 0x45,
+	0x41, 0x54, 0x4d, 0x45, 0x4e, 0x54, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49,
+	0x45, 0x44, 0x10, 0x00, 0x12, 0x1c, 0x0a, 0x18, 0x42, 0x49, 0x4c, 0x4c, 0x49, 0x4e, 0x47, 0x5f,
+	0x54, 0x52, 0x45, 0x41, 0x54, 0x4d, 0x45, 0x4e, 0x54, 0x5f, 0x4e, 0x4f, 0x52, 0x4d, 0x41, 0x4c,
+	0x10, 0x01, 0x12, 0x1d, 0x0a, 0x19, 0x42, 0x49, 0x4c, 0x4c, 0x49, 0x4e, 0x47, 0x5f, 0x54, 0x52,
+	0x45, 0x41, 0x54, 0x4d, 0x45, 0x4e, 0x54, 0x5f, 0x54, 0x52, 0x55, 0x53, 0x54, 0x45, 0x44, 0x10,
+	0x02, 0x12, 0x1c, 0x0a, 0x18, 0x42, 0x49, 0x4c, 0x4c, 0x49, 0x4e, 0x47, 0x5f, 0x54, 0x52, 0x45,
+	0x41, 0x54, 0x4d, 0x45, 0x4e, 0x54, 0x5f, 0x45, 0x58, 0x45, 0x4d, 0x50, 0x54, 0x10, 0x03, 0x2a,
+	0xfa, 0x01, 0x0a, 0x0c, 0x44, 0x75, 0x6e, 0x6e, 0x69, 0x6e, 0x67, 0x53, 0x74, 0x61, 0x67, 0x65,
+	0x12, 0x1d, 0x0a, 0x19, 0x44, 0x55, 0x4e, 0x4e, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x47,
+	0x45, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12,
+	0x16, 0x0a, 0x12, 0x44, 0x55, 0x4e, 0x4e, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x47, 0x45,
+	0x5f, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x01, 0x12, 0x1a, 0x0a, 0x16, 0x44, 0x55, 0x4e, 0x4e, 0x49,
+	0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x47, 0x45, 0x5f, 0x50, 0x41, 0x53, 0x54, 0x5f, 0x44, 0x55,
+	0x45, 0x10, 0x02, 0x12, 0x18, 0x0a, 0x14, 0x44, 0x55, 0x4e, 0x4e, 0x49, 0x4e, 0x47, 0x5f, 0x53,
+	0x54, 0x41, 0x47, 0x45, 0x5f, 0x57, 0x41, 0x52, 0x4e, 0x45, 0x44, 0x10, 0x03, 0x12, 0x1e, 0x0a,
+	0x1a, 0x44, 0x55, 0x4e, 0x4e, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x47, 0x45, 0x5f, 0x53,
+	0x4f, 0x46, 0x54, 0x5f, 0x4c, 0x49, 0x4d, 0x49, 0x54, 0x45, 0x44, 0x10, 0x04, 0x12, 0x1b, 0x0a,
+	0x17, 0x44, 0x55, 0x4e, 0x4e, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x47, 0x45, 0x5f, 0x53,
+	0x55, 0x53, 0x50, 0x45, 0x4e, 0x44, 0x45, 0x44, 0x10, 0x05, 0x12, 0x21, 0x0a, 0x1d, 0x44, 0x55,
+	0x4e, 0x4e, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x47, 0x45, 0x5f, 0x44, 0x45, 0x4c, 0x45,
+	0x54, 0x49, 0x4f, 0x4e, 0x5f, 0x57, 0x41, 0x52, 0x4e, 0x45, 0x44, 0x10, 0x06, 0x12, 0x1d, 0x0a,
+	0x19, 0x44, 0x55, 0x4e, 0x4e, 0x49, 0x4e, 0x47, 0x5f, 0x53, 0x54, 0x41, 0x47, 0x45, 0x5f, 0x57,
+	0x52, 0x49, 0x54, 0x54, 0x45, 0x4e, 0x5f, 0x4f, 0x46, 0x46, 0x10, 0x07, 0x42, 0xcb, 0x01, 0x0a,
 	0x12, 0x63, 0x6f, 0x6d, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79,
 	0x2e, 0x76, 0x31, 0x42, 0x0b, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x50, 0x72, 0x6f, 0x74, 0x6f,
 	0x50, 0x01, 0x5a, 0x4f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x74,
@@ -1041,7 +1241,7 @@ func file_transcodely_v1_common_proto_rawDescGZIP() []byte {
 	return file_transcodely_v1_common_proto_rawDescData
 }
 
-var file_transcodely_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_transcodely_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 12)
 var file_transcodely_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_transcodely_v1_common_proto_goTypes = []any{
 	(VideoCodec)(0),            // 0: transcodely.v1.VideoCodec
@@ -1054,13 +1254,15 @@ var file_transcodely_v1_common_proto_goTypes = []any{
 	(DeliveryFormat)(0),        // 7: transcodely.v1.DeliveryFormat
 	(BitrateMode)(0),           // 8: transcodely.v1.BitrateMode
 	(BillingStanding)(0),       // 9: transcodely.v1.BillingStanding
-	(*PaginationRequest)(nil),  // 10: transcodely.v1.PaginationRequest
-	(*PaginationResponse)(nil), // 11: transcodely.v1.PaginationResponse
-	(*ErrorDetails)(nil),       // 12: transcodely.v1.ErrorDetails
-	(*FieldViolation)(nil),     // 13: transcodely.v1.FieldViolation
+	(BillingTreatment)(0),      // 10: transcodely.v1.BillingTreatment
+	(DunningStage)(0),          // 11: transcodely.v1.DunningStage
+	(*PaginationRequest)(nil),  // 12: transcodely.v1.PaginationRequest
+	(*PaginationResponse)(nil), // 13: transcodely.v1.PaginationResponse
+	(*ErrorDetails)(nil),       // 14: transcodely.v1.ErrorDetails
+	(*FieldViolation)(nil),     // 15: transcodely.v1.FieldViolation
 }
 var file_transcodely_v1_common_proto_depIdxs = []int32{
-	13, // 0: transcodely.v1.ErrorDetails.field_violations:type_name -> transcodely.v1.FieldViolation
+	15, // 0: transcodely.v1.ErrorDetails.field_violations:type_name -> transcodely.v1.FieldViolation
 	1,  // [1:1] is the sub-list for method output_type
 	1,  // [1:1] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
@@ -1079,7 +1281,7 @@ func file_transcodely_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_transcodely_v1_common_proto_rawDesc), len(file_transcodely_v1_common_proto_rawDesc)),
-			NumEnums:      10,
+			NumEnums:      12,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,

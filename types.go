@@ -93,6 +93,24 @@ type (
 	BillingPaymentMethod = v1.BillingPaymentMethod
 	BillingPortalSession = v1.BillingPortalSession
 
+	// Budget is the organization's monthly budget together with the spend it is
+	// measured against. It is telemetry, not a control: crossing 100% sends an
+	// email and nothing else. The hard cap is App.MonthlySpendLimitEur, set via
+	// [Apps.SetSpendLimit].
+	Budget = v1.Budget
+
+	// OutstandingBalance is usage accrued but not yet billed, plus the
+	// threshold it is measured against. Reminders start at 80% and restrict
+	// nothing; only at HardStopCents — twice the threshold — are new jobs
+	// refused, with error code "outstanding_balance_exceeded". Work already
+	// queued keeps running and playback keeps serving.
+	OutstandingBalance = v1.OutstandingBalance
+
+	// Settlement is the statement produced by paying an outstanding balance
+	// mid-cycle. Its InvoiceId names an ordinary invoice, readable through
+	// [Billing.GetInvoice].
+	Settlement = v1.Settlement
+
 	Organization          = v1.Organization
 	Membership            = v1.Membership
 	MembershipWithUser    = v1.MembershipWithUser
@@ -219,6 +237,15 @@ type (
 
 	InvoiceListParams = v1.ListInvoicesRequest
 
+	// BudgetUpdateParams sets or clears the monthly budget. Omitting AmountEur
+	// clears it — see [Billing.ClearBudget].
+	BudgetUpdateParams = v1.UpdateBudgetRequest
+
+	// SettlementResult carries both halves of a mid-cycle settlement: the
+	// statement that was produced, and the balance as it now stands (zero, with
+	// any admission block lifted).
+	SettlementResult = v1.SettleOutstandingBalanceResponse
+
 	WebhookEndpointCreateParams = v1.CreateWebhookEndpointRequest
 	WebhookEndpointUpdateParams = v1.UpdateWebhookEndpointRequest
 	WebhookEndpointListParams   = v1.ListWebhookEndpointsRequest
@@ -291,6 +318,11 @@ type (
 	InvoiceLineType    = v1.InvoiceLineType
 	PaymentMethodState = v1.PaymentMethodState
 	BillingStanding    = v1.BillingStanding
+
+	TrustTier               = v1.TrustTier
+	ExposureThresholdSource = v1.ExposureThresholdSource
+	BillingTreatment        = v1.BillingTreatment
+	DunningStage            = v1.DunningStage
 )
 
 // JobStatus values.
@@ -643,4 +675,60 @@ const (
 	BillingStandingActive      = v1.BillingStanding_BILLING_STANDING_ACTIVE
 	BillingStandingGrace       = v1.BillingStanding_BILLING_STANDING_GRACE
 	BillingStandingDelinquent  = v1.BillingStanding_BILLING_STANDING_DELINQUENT
+)
+
+// TrustTier values. Derived from how many statements the organization has paid,
+// never assigned, and it only ever moves upward. Proven imposes no threshold of
+// its own — the account falls through to whatever ceiling its plan sets, which
+// for most is none.
+const (
+	TrustTierUnspecified = v1.TrustTier_TRUST_TIER_UNSPECIFIED
+	TrustTierNew         = v1.TrustTier_TRUST_TIER_NEW
+	TrustTierEstablished = v1.TrustTier_TRUST_TIER_ESTABLISHED
+	TrustTierProven      = v1.TrustTier_TRUST_TIER_PROVEN
+)
+
+// ExposureThresholdSource values — which rung supplied
+// OutstandingBalance.ThresholdCents. OrgPlan joins by MINIMUM, so a plan can
+// only tighten what the tier or an operator allowed. Unbounded means no
+// threshold applies: no reminders, and admission is never refused for this
+// reason.
+const (
+	ExposureThresholdSourceUnspecified     = v1.ExposureThresholdSource_EXPOSURE_THRESHOLD_SOURCE_UNSPECIFIED
+	ExposureThresholdSourceOverride        = v1.ExposureThresholdSource_EXPOSURE_THRESHOLD_SOURCE_OVERRIDE
+	ExposureThresholdSourceTrustTier       = v1.ExposureThresholdSource_EXPOSURE_THRESHOLD_SOURCE_TRUST_TIER
+	ExposureThresholdSourceOrgPlan         = v1.ExposureThresholdSource_EXPOSURE_THRESHOLD_SOURCE_ORG_PLAN
+	ExposureThresholdSourcePlatformDefault = v1.ExposureThresholdSource_EXPOSURE_THRESHOLD_SOURCE_PLATFORM_DEFAULT
+	ExposureThresholdSourceUnbounded       = v1.ExposureThresholdSource_EXPOSURE_THRESHOLD_SOURCE_UNBOUNDED
+)
+
+// BillingTreatment values — how automation may treat an organization. Assigned
+// by an operator, never derived, and orthogonal to [BillingStanding]: a trusted
+// org can report Delinquent and still be untouched by every automated path.
+//
+// Admin surfaces only. Organization.BillingTreatment is not populated for
+// customer-facing reads.
+const (
+	BillingTreatmentUnspecified = v1.BillingTreatment_BILLING_TREATMENT_UNSPECIFIED
+	BillingTreatmentNormal      = v1.BillingTreatment_BILLING_TREATMENT_NORMAL
+	BillingTreatmentTrusted     = v1.BillingTreatment_BILLING_TREATMENT_TRUSTED
+	BillingTreatmentExempt      = v1.BillingTreatment_BILLING_TREATMENT_EXEMPT
+)
+
+// DunningStage values — how far the consequences of an unpaid statement have
+// progressed. Not a fifth [BillingStanding]: standing is payment health, this
+// is what was done about it. SoftLimited refuses NEW jobs while queued work
+// finishes and playback keeps serving; Suspended stops API keys and public
+// playback but leaves dashboard reads and Cancel open.
+//
+// Admin surfaces only in this release.
+const (
+	DunningStageUnspecified    = v1.DunningStage_DUNNING_STAGE_UNSPECIFIED
+	DunningStageNone           = v1.DunningStage_DUNNING_STAGE_NONE
+	DunningStagePastDue        = v1.DunningStage_DUNNING_STAGE_PAST_DUE
+	DunningStageWarned         = v1.DunningStage_DUNNING_STAGE_WARNED
+	DunningStageSoftLimited    = v1.DunningStage_DUNNING_STAGE_SOFT_LIMITED
+	DunningStageSuspended      = v1.DunningStage_DUNNING_STAGE_SUSPENDED
+	DunningStageDeletionWarned = v1.DunningStage_DUNNING_STAGE_DELETION_WARNED
+	DunningStageWrittenOff     = v1.DunningStage_DUNNING_STAGE_WRITTEN_OFF
 )

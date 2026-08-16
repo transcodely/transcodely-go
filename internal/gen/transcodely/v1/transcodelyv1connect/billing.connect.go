@@ -50,6 +50,18 @@ const (
 	// BillingServiceCreateBillingPortalSessionProcedure is the fully-qualified name of the
 	// BillingService's CreateBillingPortalSession RPC.
 	BillingServiceCreateBillingPortalSessionProcedure = "/transcodely.v1.BillingService/CreateBillingPortalSession"
+	// BillingServiceGetBudgetProcedure is the fully-qualified name of the BillingService's GetBudget
+	// RPC.
+	BillingServiceGetBudgetProcedure = "/transcodely.v1.BillingService/GetBudget"
+	// BillingServiceUpdateBudgetProcedure is the fully-qualified name of the BillingService's
+	// UpdateBudget RPC.
+	BillingServiceUpdateBudgetProcedure = "/transcodely.v1.BillingService/UpdateBudget"
+	// BillingServiceGetOutstandingBalanceProcedure is the fully-qualified name of the BillingService's
+	// GetOutstandingBalance RPC.
+	BillingServiceGetOutstandingBalanceProcedure = "/transcodely.v1.BillingService/GetOutstandingBalance"
+	// BillingServiceSettleOutstandingBalanceProcedure is the fully-qualified name of the
+	// BillingService's SettleOutstandingBalance RPC.
+	BillingServiceSettleOutstandingBalanceProcedure = "/transcodely.v1.BillingService/SettleOutstandingBalance"
 )
 
 // BillingServiceClient is a client for the transcodely.v1.BillingService service.
@@ -86,6 +98,35 @@ type BillingServiceClient interface {
 	// (customer + subscription), so the returned portal is already attached to
 	// this organization's billing account. Safe to call repeatedly.
 	CreateBillingPortalSession(context.Context, *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error)
+	// Retrieve the organization's monthly budget together with the spend it is
+	// measured against, in one call: everything a budget card needs.
+	GetBudget(context.Context, *connect.Request[v1.GetBudgetRequest]) (*connect.Response[v1.GetBudgetResponse], error)
+	// Set or clear the organization's monthly budget.
+	//
+	// Omitting amount_eur clears the budget and turns the alert emails off.
+	// Changing the amount never re-sends an alert step already sent this period;
+	// see Budget.notified_steps.
+	UpdateBudget(context.Context, *connect.Request[v1.UpdateBudgetRequest]) (*connect.Response[v1.UpdateBudgetResponse], error)
+	// Retrieve the organization's outstanding balance — usage that has been
+	// accrued but not yet billed — together with the threshold it is measured
+	// against, in one call: everything an outstanding-balance card needs.
+	//
+	// Distinct from GetUpcomingInvoice, which shows what the CURRENT PERIOD has
+	// accrued. This shows what is UNSETTLED, which also includes anything a
+	// previous period left uncaptured, and it is the number that decides whether
+	// new jobs are admitted.
+	GetOutstandingBalance(context.Context, *connect.Request[v1.GetOutstandingBalanceRequest]) (*connect.Response[v1.GetOutstandingBalanceResponse], error)
+	// Pay the outstanding balance now, without waiting for the period to end.
+	//
+	// Closes the current period at this instant and produces a real statement for
+	// everything owed, which the payment provider then charges. On success the
+	// outstanding balance is zero, any admission block is lifted immediately, and
+	// the organization's trust tier re-evaluates once the statement is paid.
+	//
+	// Returns failed_precondition with error code "settlement_unavailable" when
+	// the deployment has mid-cycle settlement switched off, and
+	// "nothing_outstanding" when there is nothing to pay.
+	SettleOutstandingBalance(context.Context, *connect.Request[v1.SettleOutstandingBalanceRequest]) (*connect.Response[v1.SettleOutstandingBalanceResponse], error)
 }
 
 // NewBillingServiceClient constructs a client for the transcodely.v1.BillingService service. By
@@ -129,6 +170,30 @@ func NewBillingServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(billingServiceMethods.ByName("CreateBillingPortalSession")),
 			connect.WithClientOptions(opts...),
 		),
+		getBudget: connect.NewClient[v1.GetBudgetRequest, v1.GetBudgetResponse](
+			httpClient,
+			baseURL+BillingServiceGetBudgetProcedure,
+			connect.WithSchema(billingServiceMethods.ByName("GetBudget")),
+			connect.WithClientOptions(opts...),
+		),
+		updateBudget: connect.NewClient[v1.UpdateBudgetRequest, v1.UpdateBudgetResponse](
+			httpClient,
+			baseURL+BillingServiceUpdateBudgetProcedure,
+			connect.WithSchema(billingServiceMethods.ByName("UpdateBudget")),
+			connect.WithClientOptions(opts...),
+		),
+		getOutstandingBalance: connect.NewClient[v1.GetOutstandingBalanceRequest, v1.GetOutstandingBalanceResponse](
+			httpClient,
+			baseURL+BillingServiceGetOutstandingBalanceProcedure,
+			connect.WithSchema(billingServiceMethods.ByName("GetOutstandingBalance")),
+			connect.WithClientOptions(opts...),
+		),
+		settleOutstandingBalance: connect.NewClient[v1.SettleOutstandingBalanceRequest, v1.SettleOutstandingBalanceResponse](
+			httpClient,
+			baseURL+BillingServiceSettleOutstandingBalanceProcedure,
+			connect.WithSchema(billingServiceMethods.ByName("SettleOutstandingBalance")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -139,6 +204,10 @@ type billingServiceClient struct {
 	getUpcomingInvoice         *connect.Client[v1.GetUpcomingInvoiceRequest, v1.GetUpcomingInvoiceResponse]
 	getBillingProfile          *connect.Client[v1.GetBillingProfileRequest, v1.GetBillingProfileResponse]
 	createBillingPortalSession *connect.Client[v1.CreateBillingPortalSessionRequest, v1.CreateBillingPortalSessionResponse]
+	getBudget                  *connect.Client[v1.GetBudgetRequest, v1.GetBudgetResponse]
+	updateBudget               *connect.Client[v1.UpdateBudgetRequest, v1.UpdateBudgetResponse]
+	getOutstandingBalance      *connect.Client[v1.GetOutstandingBalanceRequest, v1.GetOutstandingBalanceResponse]
+	settleOutstandingBalance   *connect.Client[v1.SettleOutstandingBalanceRequest, v1.SettleOutstandingBalanceResponse]
 }
 
 // ListInvoices calls transcodely.v1.BillingService.ListInvoices.
@@ -164,6 +233,26 @@ func (c *billingServiceClient) GetBillingProfile(ctx context.Context, req *conne
 // CreateBillingPortalSession calls transcodely.v1.BillingService.CreateBillingPortalSession.
 func (c *billingServiceClient) CreateBillingPortalSession(ctx context.Context, req *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error) {
 	return c.createBillingPortalSession.CallUnary(ctx, req)
+}
+
+// GetBudget calls transcodely.v1.BillingService.GetBudget.
+func (c *billingServiceClient) GetBudget(ctx context.Context, req *connect.Request[v1.GetBudgetRequest]) (*connect.Response[v1.GetBudgetResponse], error) {
+	return c.getBudget.CallUnary(ctx, req)
+}
+
+// UpdateBudget calls transcodely.v1.BillingService.UpdateBudget.
+func (c *billingServiceClient) UpdateBudget(ctx context.Context, req *connect.Request[v1.UpdateBudgetRequest]) (*connect.Response[v1.UpdateBudgetResponse], error) {
+	return c.updateBudget.CallUnary(ctx, req)
+}
+
+// GetOutstandingBalance calls transcodely.v1.BillingService.GetOutstandingBalance.
+func (c *billingServiceClient) GetOutstandingBalance(ctx context.Context, req *connect.Request[v1.GetOutstandingBalanceRequest]) (*connect.Response[v1.GetOutstandingBalanceResponse], error) {
+	return c.getOutstandingBalance.CallUnary(ctx, req)
+}
+
+// SettleOutstandingBalance calls transcodely.v1.BillingService.SettleOutstandingBalance.
+func (c *billingServiceClient) SettleOutstandingBalance(ctx context.Context, req *connect.Request[v1.SettleOutstandingBalanceRequest]) (*connect.Response[v1.SettleOutstandingBalanceResponse], error) {
+	return c.settleOutstandingBalance.CallUnary(ctx, req)
 }
 
 // BillingServiceHandler is an implementation of the transcodely.v1.BillingService service.
@@ -200,6 +289,35 @@ type BillingServiceHandler interface {
 	// (customer + subscription), so the returned portal is already attached to
 	// this organization's billing account. Safe to call repeatedly.
 	CreateBillingPortalSession(context.Context, *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error)
+	// Retrieve the organization's monthly budget together with the spend it is
+	// measured against, in one call: everything a budget card needs.
+	GetBudget(context.Context, *connect.Request[v1.GetBudgetRequest]) (*connect.Response[v1.GetBudgetResponse], error)
+	// Set or clear the organization's monthly budget.
+	//
+	// Omitting amount_eur clears the budget and turns the alert emails off.
+	// Changing the amount never re-sends an alert step already sent this period;
+	// see Budget.notified_steps.
+	UpdateBudget(context.Context, *connect.Request[v1.UpdateBudgetRequest]) (*connect.Response[v1.UpdateBudgetResponse], error)
+	// Retrieve the organization's outstanding balance — usage that has been
+	// accrued but not yet billed — together with the threshold it is measured
+	// against, in one call: everything an outstanding-balance card needs.
+	//
+	// Distinct from GetUpcomingInvoice, which shows what the CURRENT PERIOD has
+	// accrued. This shows what is UNSETTLED, which also includes anything a
+	// previous period left uncaptured, and it is the number that decides whether
+	// new jobs are admitted.
+	GetOutstandingBalance(context.Context, *connect.Request[v1.GetOutstandingBalanceRequest]) (*connect.Response[v1.GetOutstandingBalanceResponse], error)
+	// Pay the outstanding balance now, without waiting for the period to end.
+	//
+	// Closes the current period at this instant and produces a real statement for
+	// everything owed, which the payment provider then charges. On success the
+	// outstanding balance is zero, any admission block is lifted immediately, and
+	// the organization's trust tier re-evaluates once the statement is paid.
+	//
+	// Returns failed_precondition with error code "settlement_unavailable" when
+	// the deployment has mid-cycle settlement switched off, and
+	// "nothing_outstanding" when there is nothing to pay.
+	SettleOutstandingBalance(context.Context, *connect.Request[v1.SettleOutstandingBalanceRequest]) (*connect.Response[v1.SettleOutstandingBalanceResponse], error)
 }
 
 // NewBillingServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -239,6 +357,30 @@ func NewBillingServiceHandler(svc BillingServiceHandler, opts ...connect.Handler
 		connect.WithSchema(billingServiceMethods.ByName("CreateBillingPortalSession")),
 		connect.WithHandlerOptions(opts...),
 	)
+	billingServiceGetBudgetHandler := connect.NewUnaryHandler(
+		BillingServiceGetBudgetProcedure,
+		svc.GetBudget,
+		connect.WithSchema(billingServiceMethods.ByName("GetBudget")),
+		connect.WithHandlerOptions(opts...),
+	)
+	billingServiceUpdateBudgetHandler := connect.NewUnaryHandler(
+		BillingServiceUpdateBudgetProcedure,
+		svc.UpdateBudget,
+		connect.WithSchema(billingServiceMethods.ByName("UpdateBudget")),
+		connect.WithHandlerOptions(opts...),
+	)
+	billingServiceGetOutstandingBalanceHandler := connect.NewUnaryHandler(
+		BillingServiceGetOutstandingBalanceProcedure,
+		svc.GetOutstandingBalance,
+		connect.WithSchema(billingServiceMethods.ByName("GetOutstandingBalance")),
+		connect.WithHandlerOptions(opts...),
+	)
+	billingServiceSettleOutstandingBalanceHandler := connect.NewUnaryHandler(
+		BillingServiceSettleOutstandingBalanceProcedure,
+		svc.SettleOutstandingBalance,
+		connect.WithSchema(billingServiceMethods.ByName("SettleOutstandingBalance")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.BillingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case BillingServiceListInvoicesProcedure:
@@ -251,6 +393,14 @@ func NewBillingServiceHandler(svc BillingServiceHandler, opts ...connect.Handler
 			billingServiceGetBillingProfileHandler.ServeHTTP(w, r)
 		case BillingServiceCreateBillingPortalSessionProcedure:
 			billingServiceCreateBillingPortalSessionHandler.ServeHTTP(w, r)
+		case BillingServiceGetBudgetProcedure:
+			billingServiceGetBudgetHandler.ServeHTTP(w, r)
+		case BillingServiceUpdateBudgetProcedure:
+			billingServiceUpdateBudgetHandler.ServeHTTP(w, r)
+		case BillingServiceGetOutstandingBalanceProcedure:
+			billingServiceGetOutstandingBalanceHandler.ServeHTTP(w, r)
+		case BillingServiceSettleOutstandingBalanceProcedure:
+			billingServiceSettleOutstandingBalanceHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -278,4 +428,20 @@ func (UnimplementedBillingServiceHandler) GetBillingProfile(context.Context, *co
 
 func (UnimplementedBillingServiceHandler) CreateBillingPortalSession(context.Context, *connect.Request[v1.CreateBillingPortalSessionRequest]) (*connect.Response[v1.CreateBillingPortalSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.CreateBillingPortalSession is not implemented"))
+}
+
+func (UnimplementedBillingServiceHandler) GetBudget(context.Context, *connect.Request[v1.GetBudgetRequest]) (*connect.Response[v1.GetBudgetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.GetBudget is not implemented"))
+}
+
+func (UnimplementedBillingServiceHandler) UpdateBudget(context.Context, *connect.Request[v1.UpdateBudgetRequest]) (*connect.Response[v1.UpdateBudgetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.UpdateBudget is not implemented"))
+}
+
+func (UnimplementedBillingServiceHandler) GetOutstandingBalance(context.Context, *connect.Request[v1.GetOutstandingBalanceRequest]) (*connect.Response[v1.GetOutstandingBalanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.GetOutstandingBalance is not implemented"))
+}
+
+func (UnimplementedBillingServiceHandler) SettleOutstandingBalance(context.Context, *connect.Request[v1.SettleOutstandingBalanceRequest]) (*connect.Response[v1.SettleOutstandingBalanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.BillingService.SettleOutstandingBalance is not implemented"))
 }

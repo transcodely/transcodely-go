@@ -1126,9 +1126,18 @@ func (x *EnableHostingResponse) GetApp() *App {
 // Controls CDN delivery, upload limits, and auto-transcoding defaults.
 type HostingConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Default visibility for new uploads: "public", "unlisted", or "private".
+	// Default visibility for videos this app creates: "public", "unlisted", or
+	// "private". Applies to every creation path — CreateUpload,
+	// CreateMultipartUpload, CreateFromUrl and the video a managed CreateJob
+	// produces — whenever the request itself does not name a visibility. Unset
+	// means "unlisted".
 	DefaultVisibility *string `protobuf:"bytes,1,opt,name=default_visibility,json=defaultVisibility,proto3,oneof" json:"default_visibility,omitempty"`
-	// Max upload file size in bytes (0 = no limit).
+	// Max upload file size in bytes (0 = no limit). Enforced at CreateUpload and
+	// CreateMultipartUpload against the request's declared size_bytes, on top of
+	// the fixed 5 GB per-request ceiling; over-limit requests are rejected with
+	// error code "max_upload_size_exceeded" before anything is created. Not
+	// enforced by CreateFromUrl, whose source size is unknown until the worker
+	// fetches the URL.
 	MaxUploadSizeBytes *int64 `protobuf:"varint,2,opt,name=max_upload_size_bytes,json=maxUploadSizeBytes,proto3,oneof" json:"max_upload_size_bytes,omitempty"`
 	// CORS allowed origins for CDN delivery.
 	// These are the domains that can embed/fetch videos from the CDN.

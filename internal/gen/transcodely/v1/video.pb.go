@@ -795,7 +795,11 @@ type CreateUploadRequest struct {
 	Description *string `protobuf:"bytes,5,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// Optional tags for categorization (max 20).
 	Tags []string `protobuf:"bytes,6,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Visibility setting. Defaults to "unlisted" if not specified.
+	// Visibility setting: "public", "unlisted" or "private".
+	//
+	// When omitted (or sent as an empty string), the app's hosting
+	// default_visibility applies; if the app has no default_visibility set
+	// either, the video is created "unlisted".
 	Visibility *string `protobuf:"bytes,7,opt,name=visibility,proto3,oneof" json:"visibility,omitempty"`
 	// Optional preset reference for the auto-transcode job.
 	// Accepts either a preset ID (e.g., "pst_abc123") or slug (e.g., "gaming_1080p_60_standard").
@@ -1102,7 +1106,11 @@ type CreateFromUrlRequest struct {
 	Description *string `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// Optional tags for categorization (max 20).
 	Tags []string `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Visibility setting. Defaults to "unlisted" if not specified.
+	// Visibility setting: "public", "unlisted" or "private".
+	//
+	// When omitted (or sent as an empty string), the app's hosting
+	// default_visibility applies; if the app has no default_visibility set
+	// either, the video is created "unlisted".
 	Visibility *string `protobuf:"bytes,6,opt,name=visibility,proto3,oneof" json:"visibility,omitempty"`
 	// Optional preset reference for the auto-transcode job.
 	// Accepts either a preset ID (e.g., "pst_abc123") or slug (e.g., "gaming_1080p_60_standard").
@@ -1401,7 +1409,11 @@ type CreateMultipartUploadRequest struct {
 	Description *string `protobuf:"bytes,11,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// Optional tags for categorization (max 20).
 	Tags []string `protobuf:"bytes,12,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Visibility setting. Defaults to "unlisted" if not specified.
+	// Visibility setting: "public", "unlisted" or "private".
+	//
+	// When omitted (or sent as an empty string), the app's hosting
+	// default_visibility applies; if the app has no default_visibility set
+	// either, the video is created "unlisted".
 	Visibility *string `protobuf:"bytes,13,opt,name=visibility,proto3,oneof" json:"visibility,omitempty"`
 	// Optional preset reference for the auto-transcode job.
 	Preset *string `protobuf:"bytes,14,opt,name=preset,proto3,oneof" json:"preset,omitempty"`

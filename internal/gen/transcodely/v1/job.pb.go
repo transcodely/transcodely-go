@@ -2944,8 +2944,16 @@ type CreateJobRequest struct {
 	// output origin's path_template or the default "{job_id}/{output_id}".
 	// Must not start with `/` or contain `..` (no path traversal).
 	OutputPathTemplate *string `protobuf:"bytes,12,opt,name=output_path_template,json=outputPathTemplate,proto3,oneof" json:"output_path_template,omitempty"`
-	// Write outputs to managed hosting storage and create a video record.
-	// When true, output_origin_id is not required.
+	// Write outputs to Transcodely-managed storage and create a hosted video
+	// record, playable over our CDN. When true, output_origin_id is not required.
+	//
+	// Managed hosting is enabled for the app the first time a job asks for it —
+	// there is no dashboard step and no AppService.EnableHosting call to make
+	// first. That first request provisions the app's storage bucket, its managed
+	// origin and its CDN pull zone, so it can take a few seconds longer than the
+	// ones after it. If provisioning fails the request is rejected with error
+	// code `hosting_provisioning_failed` (gRPC `unavailable`) and no job is
+	// created; the request is safe to retry unchanged.
 	Managed *bool `protobuf:"varint,20,opt,name=managed,proto3,oneof" json:"managed,omitempty"`
 	// Optional target app. API-key callers may omit it (their key's app is used)
 	// or pass their own app; a different app is rejected with PermissionDenied.

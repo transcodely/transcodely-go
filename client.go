@@ -1,7 +1,9 @@
-// Package transcodely is the official Go SDK for the Transcodely video
-// transcoding API.
+// Package transcodely is the official Go SDK for Transcodely — encode video into
+// HLS, DASH and MP4 and write it to your own S3, GCS or R2 bucket, with DRM,
+// signed playback and deterministic output paths. Or let Transcodely host and
+// deliver it.
 //
-// Get an API key at https://transcodely.com and start transcoding:
+// Get an API key at https://www.transcodely.com and start transcoding:
 //
 //	import (
 //	    "context"
@@ -9,6 +11,7 @@
 //	    "os"
 //
 //	    "github.com/transcodely/transcodely-go"
+//	    "google.golang.org/protobuf/proto"
 //	)
 //
 //	func main() {
@@ -18,6 +21,9 @@
 //	    }
 //	    job, err := client.Jobs.Create(context.Background(), &transcodely.JobCreateParams{
 //	        InputUrl: "https://example.com/in.mp4",
+//	        // Write outputs to Transcodely-managed storage. Drop Managed and set
+//	        // OutputOriginId to write to your own bucket instead.
+//	        Managed: proto.Bool(true),
 //	        Outputs: []*transcodely.OutputSpec{
 //	            {Type: transcodely.OutputFormatHLS, Video: []*transcodely.VideoVariant{
 //	                {Codec: transcodely.VideoCodecH264, Resolution: transcodely.Resolution1080P},

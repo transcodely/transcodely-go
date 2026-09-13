@@ -778,10 +778,18 @@ func (x *VideoTextTrack) GetCreatedAt() *timestamppb.Timestamp {
 }
 
 // Request to create a presigned upload URL for direct client upload.
+//
+// Managed hosting is enabled for the app the first time a video is created —
+// there is no dashboard step and no AppService.EnableHosting call to make
+// first. That first request provisions the app's storage bucket, its managed
+// origin and its CDN pull zone, so it can take a few seconds longer than the
+// ones after it. If provisioning fails the request is rejected with error code
+// `hosting_provisioning_failed` (gRPC `unavailable`) and no video is created;
+// the request is safe to retry unchanged.
 type CreateUploadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// App to create the video under. Required. The app must have managed hosting
-	// enabled (AppService.EnableHosting) or the call fails with FailedPrecondition.
+	// App to create the video under. Required. Managed hosting does not have to
+	// be enabled on it first — see the note on this message; the call enables it.
 	AppId string `protobuf:"bytes,8,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`
 	// Original filename (used for content-type detection and display).
 	Filename string `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
@@ -1089,10 +1097,18 @@ func (x *CompleteUploadResponse) GetVideo() *Video {
 }
 
 // Request to create a hosted video from a remote URL (one-call ingest).
+//
+// Managed hosting is enabled for the app the first time a video is created —
+// there is no dashboard step and no AppService.EnableHosting call to make
+// first. That first request provisions the app's storage bucket, its managed
+// origin and its CDN pull zone, so it can take a few seconds longer than the
+// ones after it. If provisioning fails the request is rejected with error code
+// `hosting_provisioning_failed` (gRPC `unavailable`) and no video is created;
+// the request is safe to retry unchanged.
 type CreateFromUrlRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// App to create the video under. Required. The app must have managed hosting
-	// enabled (AppService.EnableHosting) or the call fails with FailedPrecondition.
+	// App to create the video under. Required. Managed hosting does not have to
+	// be enabled on it first — see the note on this message; the call enables it.
 	AppId string `protobuf:"bytes,1,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`
 	// Publicly-reachable source URL to ingest. Must be http:// or https:// —
 	// storage-origin schemes (gs://, s3://) are not accepted here; use an origin
@@ -1386,10 +1402,18 @@ func (x *CompletedPart) GetEtag() string {
 }
 
 // Request to create a multipart upload for large files.
+//
+// Managed hosting is enabled for the app the first time a video is created —
+// there is no dashboard step and no AppService.EnableHosting call to make
+// first. That first request provisions the app's storage bucket, its managed
+// origin and its CDN pull zone, so it can take a few seconds longer than the
+// ones after it. If provisioning fails the request is rejected with error code
+// `hosting_provisioning_failed` (gRPC `unavailable`) and no video is created;
+// the request is safe to retry unchanged.
 type CreateMultipartUploadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// App to create the video under. Required. The app must have managed hosting
-	// enabled (AppService.EnableHosting) or the call fails with FailedPrecondition.
+	// App to create the video under. Required. Managed hosting does not have to
+	// be enabled on it first — see the note on this message; the call enables it.
 	AppId string `protobuf:"bytes,1,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`
 	// Original filename (used for content-type detection and display).
 	Filename string `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`

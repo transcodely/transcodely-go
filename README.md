@@ -129,6 +129,12 @@ for _, out := range job.GetOutputs() {
 Branch on `m.GetField()` — it comes from a fixed vocabulary (`video.codec`,
 `video.resolution`, `duration_seconds`, …) — rather than on the values beside it.
 
+An output encoded with per-title content-aware analysis also carries
+`report.GetContentAware()`: the VMAF target the search aimed at, the score it
+reached on its samples, and the CRF it chose. It describes the SEARCH, not the
+delivered file — `GetVmafAchieved()` scores short samples taken before the real
+encode, which is never scored itself. It is nil on every ordinary output.
+
 ## Iterate every job
 
 ```go

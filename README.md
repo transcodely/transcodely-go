@@ -94,6 +94,41 @@ if err := stream.Err(); err != nil {
 }
 ```
 
+## Read the output report
+
+Every completed output carries a report of what the file actually turned out to
+be — measured from the encoded file, not copied from the request — plus the
+verdict of comparing those measurements against what was asked for.
+
+```go
+job, err := client.Jobs.Get(ctx, jobID)
+if err != nil {
+    log.Fatal(err)
+}
+for _, out := range job.GetOutputs() {
+    report := out.GetReport()
+    if report == nil {
+        continue // not measured — never "nothing wrong"
+    }
+    log.Printf("%s: %s %dx%d, %.1fs",
+        out.GetId(),
+        report.GetVideo().GetCodec(),
+        report.GetVideo().GetWidth(),
+        report.GetVideo().GetHeight(),
+        report.GetDurationSeconds())
+
+    if !report.GetVerdict().GetMatchesRequest() {
+        for _, m := range report.GetVerdict().GetMismatches() {
+            log.Printf("  %s: asked for %s, got %s",
+                m.GetField(), m.GetExpected(), m.GetActual())
+        }
+    }
+}
+```
+
+Branch on `m.GetField()` — it comes from a fixed vocabulary (`video.codec`,
+`video.resolution`, `duration_seconds`, …) — rather than on the values beside it.
+
 ## Iterate every job
 
 ```go

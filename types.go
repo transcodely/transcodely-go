@@ -21,6 +21,37 @@ type (
 	SegmentConfig       = v1.SegmentConfig
 	ExecutionTiming     = v1.ExecutionTiming
 
+	// OutputReport is what a produced file turned out to be — container, video
+	// and audio properties, and duration, measured from the encoded file rather
+	// than copied from the request — together with the verdict of comparing
+	// those measurements against what the output asked for. Reach it through
+	// JobOutput.GetReport(), which is nil until the output has been measured;
+	// absence means "not measured", never "nothing wrong".
+	//
+	// For a multi-rendition output (an ABR ladder, HLS, DASH, adaptive) the
+	// facts describe the highest-resolution rendition, which is also the one
+	// the verdict judges.
+	OutputReport = v1.OutputReport
+	// OutputReportVideo holds the measured properties of a produced video
+	// stream: codec, profile, level, pixel format, dimensions, frame rate,
+	// bitrate, color signaling and HDR format.
+	OutputReportVideo = v1.OutputReportVideo
+	// OutputReportColor holds the color signaling read from a produced video
+	// stream: primaries, transfer, matrix and range.
+	OutputReportColor = v1.OutputReportColor
+	// OutputReportAudio holds the measured properties of one produced audio
+	// stream: codec, channels, sample rate, bitrate and language tag.
+	OutputReportAudio = v1.OutputReportAudio
+	// OutputReportVerdict answers whether the produced file matches what was
+	// requested, and lists every property that does not. Properties the request
+	// left open are not checked and cannot make GetMatchesRequest() false.
+	OutputReportVerdict = v1.OutputReportVerdict
+	// OutputReportMismatch names one property that differs, from a fixed
+	// vocabulary ("video.codec", "video.resolution", "duration_seconds", ...),
+	// with the requested and produced values beside it. Branch on GetField(),
+	// not on the values.
+	OutputReportMismatch = v1.OutputReportMismatch
+
 	PricingSnapshot        = v1.PricingSnapshot
 	VariantPricingSnapshot = v1.VariantPricingSnapshot
 	JobFee                 = v1.JobFee

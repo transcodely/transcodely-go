@@ -37,8 +37,8 @@
 //	}
 //
 // All resources hang off the root [Client]: Jobs, Videos, Presets, Origins,
-// Apps, APIKeys, Organizations, Memberships, Users, Health, WebhookEndpoints,
-// Events, Billing.
+// IngestRules, Apps, APIKeys, Organizations, Memberships, Users, Health,
+// WebhookEndpoints, Events, Billing.
 //
 // Verify inbound webhook deliveries with the package-level [ConstructEvent].
 //
@@ -70,10 +70,14 @@ var ErrMissingAPIKey = errors.New("transcodely: api key is required")
 type Client struct {
 	cfg *config
 
-	Jobs          *Jobs
-	Videos        *Videos
-	Presets       *Presets
-	Origins       *Origins
+	Jobs    *Jobs
+	Videos  *Videos
+	Presets *Presets
+	Origins *Origins
+
+	// IngestRules turns objects landing in a watched bucket into jobs, with
+	// no server of yours in the path. See [IngestRules].
+	IngestRules   *IngestRules
 	Apps          *Apps
 	APIKeys       *APIKeys
 	Organizations *Organizations
@@ -129,6 +133,7 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 		cfg)
 	c.Presets = newPresets(transcodelyv1connect.NewPresetServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Origins = newOrigins(transcodelyv1connect.NewOriginServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
+	c.IngestRules = newIngestRules(transcodelyv1connect.NewIngestRuleServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Apps = newApps(transcodelyv1connect.NewAppServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.APIKeys = newAPIKeys(transcodelyv1connect.NewAPIKeyServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))
 	c.Organizations = newOrganizations(transcodelyv1connect.NewOrganizationServiceClient(cfg.httpClient, cfg.baseURL, unaryOpts...))

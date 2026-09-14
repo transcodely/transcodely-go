@@ -51,6 +51,19 @@ type (
 	// with the requested and produced values beside it. Branch on GetField(),
 	// not on the values.
 	OutputReportMismatch = v1.OutputReportMismatch
+	// OutputReportContentAware is what the content-aware analysis decided for
+	// one output: the VMAF target the search aimed at, the score it reached on
+	// its samples, and the CRF it settled on. Reach it through
+	// OutputReport.GetContentAware(), which is nil on every ordinary output and
+	// also on a content-aware output whose analysis never reported — that
+	// encode fell back to the quality tier's own CRF.
+	//
+	// These describe the SEARCH, not the finished file. The search runs on
+	// short samples taken before the real encode starts, so GetVmafAchieved()
+	// scores those samples and never the delivered output, which is not scored
+	// at all. The facts about the delivered file are the other OutputReport
+	// fields.
+	OutputReportContentAware = v1.OutputReportContentAware
 
 	PricingSnapshot        = v1.PricingSnapshot
 	VariantPricingSnapshot = v1.VariantPricingSnapshot

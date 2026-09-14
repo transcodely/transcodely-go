@@ -19,7 +19,10 @@ var (
 	_ *v1.OutputReportVerdict  = (*OutputReportVerdict)(nil)
 	_ *v1.OutputReportMismatch = (*OutputReportMismatch)(nil)
 
-	_ *OutputReport = (&JobOutput{}).GetReport()
+	_ *v1.OutputReportContentAware = (*OutputReportContentAware)(nil)
+
+	_ *OutputReport             = (&JobOutput{}).GetReport()
+	_ *OutputReportContentAware = (&OutputReport{}).GetContentAware()
 )
 
 // A GetJob response carrying an output report decodes through the SDK's own
@@ -115,5 +118,57 @@ func TestOutputReport_AbsentIsNil(t *testing.T) {
 	}
 	if got := resp.GetJob().GetOutputs()[0].GetReport(); got != nil {
 		t.Errorf("report = %v, want nil", got)
+	}
+}
+
+// An output encoded with per-title analysis carries what that search decided,
+// under the report's own snake_case field name.
+func TestOutputReport_ContentAwareDecodesFromTheWire(t *testing.T) {
+	payload := []byte(`{"job":{"id":"job_abc123def456","outputs":[{
+		"id":"out_abc123def4567","status":"completed","report":{
+			"container":"mp4",
+			"content_aware":{
+				"mode":"per_title",
+				"vmaf_target":95,
+				"vmaf_achieved":95.4,
+				"crf_chosen":24
+			}
+		}}]}}`)
+
+	var resp v1.GetJobResponse
+	if err := codec.NewProtoJSONCodec().Unmarshal(payload, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	ca := resp.GetJob().GetOutputs()[0].GetReport().GetContentAware()
+	if ca == nil {
+		t.Fatal("report carries no content_aware block")
+	}
+	if got, want := ca.GetMode(), "per_title"; got != want {
+		t.Errorf("mode = %q, want %q", got, want)
+	}
+	if got, want := ca.GetVmafTarget(), 95.0; got != want {
+		t.Errorf("vmaf_target = %v, want %v", got, want)
+	}
+	if got, want := ca.GetVmafAchieved(), 95.4; got != want {
+		t.Errorf("vmaf_achieved = %v, want %v", got, want)
+	}
+	if got, want := ca.GetCrfChosen(), int32(24); got != want {
+		t.Errorf("crf_chosen = %d, want %d", got, want)
+	}
+}
+
+// An ordinary output's report carries no content_aware block, and that absence
+// reads as nil rather than an empty block claiming an analysis that never ran.
+func TestOutputReport_ContentAwareAbsentIsNil(t *testing.T) {
+	payload := []byte(`{"job":{"id":"job_abc123def456","outputs":[{
+		"id":"out_abc123def4567","report":{"container":"mp4"}}]}}`)
+
+	var resp v1.GetJobResponse
+	if err := codec.NewProtoJSONCodec().Unmarshal(payload, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got := resp.GetJob().GetOutputs()[0].GetReport().GetContentAware(); got != nil {
+		t.Errorf("content_aware = %v, want nil", got)
 	}
 }

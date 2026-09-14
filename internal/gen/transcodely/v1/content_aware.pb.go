@@ -26,18 +26,22 @@ const (
 
 // Content-aware encoding mode.
 //
-// NOT YET SUPPORTED. The worker pipeline does not yet act on content-aware
-// encoding, so any output carrying a ContentAwareConfig is rejected at CreateJob
-// with error code `parameter_unsupported` (see issue #167). The enum values are
-// retained for wire compatibility and will become active when the feature ships.
+// NOT YET ACCEPTED ON A REQUEST. Any output carrying a ContentAwareConfig is
+// still rejected at CreateJob with error code `parameter_unsupported` (see
+// issue #167). The enum values are retained for wire compatibility and will
+// become active when the feature ships.
+//
+// The REPORTING side of the feature is already live: an output encoded with
+// per-title analysis carries what that analysis decided on
+// OutputReport.content_aware. Nothing populates it until requests are accepted.
 type ContentAwareMode int32
 
 const (
 	ContentAwareMode_CONTENT_AWARE_MODE_UNSPECIFIED ContentAwareMode = 0
-	// Optimize CRF for target VMAF on specific content. NOT YET SUPPORTED —
+	// Optimize CRF for target VMAF on specific content. NOT YET ACCEPTED —
 	// rejected at create.
 	ContentAwareMode_CONTENT_AWARE_MODE_PER_TITLE ContentAwareMode = 1
-	// Generate optimal bitrate ladder automatically. NOT YET SUPPORTED —
+	// Generate optimal bitrate ladder automatically. NOT YET ACCEPTED —
 	// rejected at create.
 	ContentAwareMode_CONTENT_AWARE_MODE_AUTO_ABR ContentAwareMode = 2
 )
@@ -85,7 +89,7 @@ func (ContentAwareMode) EnumDescriptor() ([]byte, []int) {
 
 // Auto ABR ladder generation constraints.
 //
-// NOT YET SUPPORTED — see ContentAwareConfig. These constraints are validated
+// NOT YET ACCEPTED — see ContentAwareConfig. These constraints are validated
 // for shape but never applied, because a request carrying content_aware is
 // rejected at create.
 type AutoABRConfig struct {
@@ -164,7 +168,7 @@ func (x *AutoABRConfig) GetMaxResolution() Resolution {
 
 // Content-aware encoding configuration for an output.
 //
-// NOT YET SUPPORTED. Setting content_aware on any output causes CreateJob to
+// NOT YET ACCEPTED. Setting content_aware on any output causes CreateJob to
 // fail with error code `parameter_unsupported` and the message "content-aware
 // encoding (per_title/auto_abr) is not yet supported". The worker does not yet
 // implement per-title CRF optimization or auto-ABR ladder generation — both
@@ -174,13 +178,22 @@ func (x *AutoABRConfig) GetMaxResolution() Resolution {
 // retained for wire compatibility and forward-planning.
 type ContentAwareConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Encoding mode (required). NOT YET SUPPORTED — any value here causes the
+	// Encoding mode (required). NOT YET ACCEPTED — any value here causes the
 	// request to be rejected at create.
 	Mode ContentAwareMode `protobuf:"varint,1,opt,name=mode,proto3,enum=transcodely.v1.ContentAwareMode" json:"mode,omitempty"`
-	// Override VMAF target (70-99). NOT YET SUPPORTED — content-aware encoding is
+	// Override VMAF target (80-97). NOT YET ACCEPTED — content-aware encoding is
 	// rejected at create, so this value is never applied.
+	//
+	// The range is the one the per-title search can actually work in, narrowed
+	// from 70-99 before the feature was ever accepted: below 80 the result is not
+	// a quality target anyone would ask for, and above 97 the search cannot
+	// distinguish the last point from the one below it. Asking for a number we
+	// would silently move is worse than refusing it.
+	//
+	// The value the analysis actually searched against is reported back on
+	// OutputReport.content_aware.vmaf_target, which is the one to read.
 	VmafTarget *float64 `protobuf:"fixed64,2,opt,name=vmaf_target,json=vmafTarget,proto3,oneof" json:"vmaf_target,omitempty"`
-	// Auto ABR constraints (only for auto_abr mode). NOT YET SUPPORTED — rejected
+	// Auto ABR constraints (only for auto_abr mode). NOT YET ACCEPTED — rejected
 	// at create.
 	AutoAbr       *AutoABRConfig `protobuf:"bytes,3,opt,name=auto_abr,json=autoAbr,proto3,oneof" json:"auto_abr,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -240,9 +253,10 @@ func (x *ContentAwareConfig) GetAutoAbr() *AutoABRConfig {
 
 // Content analysis results from extended probe.
 //
-// NOT YET POPULATED. Produced only when content-aware analysis is wired in the
-// worker; today no job carries it, because content_aware requests are rejected
-// at create (see ContentAwareConfig).
+// NOT YET POPULATED, and not carried by any RPC. The worker measures these
+// complexity scores but has nowhere to send them: the API stores the per-title
+// SEARCH RESULT (see OutputReportContentAware) and not the source scores behind
+// it. Retained for wire compatibility.
 type ContentAnalysis struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Overall encoding complexity (0-1).
@@ -351,8 +365,8 @@ var file_transcodely_v1_content_aware_proto_rawDesc = string([]byte{
 	0x41, 0x77, 0x61, 0x72, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x42, 0x0b, 0xba, 0x48, 0x08, 0xc8, 0x01,
 	0x01, 0x82, 0x01, 0x02, 0x10, 0x01, 0x52, 0x04, 0x6d, 0x6f, 0x64, 0x65, 0x12, 0x3d, 0x0a, 0x0b,
 	0x76, 0x6d, 0x61, 0x66, 0x5f, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x01, 0x42, 0x17, 0xba, 0x48, 0x14, 0x12, 0x12, 0x19, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x58,
-	0x40, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x51, 0x40, 0x48, 0x00, 0x52, 0x0a, 0x76, 0x6d,
+	0x01, 0x42, 0x17, 0xba, 0x48, 0x14, 0x12, 0x12, 0x19, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x58,
+	0x40, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x54, 0x40, 0x48, 0x00, 0x52, 0x0a, 0x76, 0x6d,
 	0x61, 0x66, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x88, 0x01, 0x01, 0x12, 0x3d, 0x0a, 0x08, 0x61,
 	0x75, 0x74, 0x6f, 0x5f, 0x61, 0x62, 0x72, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e,
 	0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31, 0x2e, 0x41,

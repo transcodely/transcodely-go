@@ -89,6 +89,17 @@ type (
 	R2OriginConfig   = v1.R2OriginConfig
 	ValidationResult = v1.ValidationResult
 
+	// IngestRule is a standing instruction on one storage origin: when an
+	// object matching Filters appears, create the job in Action. Its
+	// EndpointUrl is where the storage provider posts; SecretPrefix and
+	// SecretHint are all that remains of the inbound secret after creation.
+	// StorageEvent is one delivery and what came of it — read them with
+	// [IngestRules.ListEvents].
+	IngestRule        = v1.IngestRule
+	IngestRuleFilters = v1.IngestRuleFilters
+	IngestRuleAction  = v1.IngestRuleAction
+	StorageEvent      = v1.StorageEvent
+
 	App                 = v1.App
 	HostingConfig       = v1.HostingConfig
 	AutoProfileDefaults = v1.AutoProfileDefaults
@@ -266,6 +277,17 @@ type (
 	MultipartCompleteParams      = v1.CompleteMultipartUploadRequest
 	MultipartAbortParams         = v1.AbortMultipartUploadRequest
 
+	IngestRuleCreateParams = v1.CreateIngestRuleRequest
+	IngestRuleUpdateParams = v1.UpdateIngestRuleRequest
+	IngestRuleListParams   = v1.ListIngestRulesRequest
+	IngestEventListParams  = v1.ListIngestEventsRequest
+	IngestRuleTestParams   = v1.TestIngestRuleRequest
+
+	// IngestRuleTestResult is a dry run's answer: whether the object would
+	// produce a job, why not when it would not, and — when it would — the
+	// exact CreateJobRequest the rule would submit.
+	IngestRuleTestResult = v1.TestIngestRuleResponse
+
 	InvoiceListParams = v1.ListInvoicesRequest
 
 	// BudgetUpdateParams sets or clears the monthly budget. Omitting AmountEur
@@ -344,6 +366,9 @@ type (
 	UserStatus       = v1.UserStatus
 
 	AppStatus = v1.AppStatus
+
+	StorageEventSource = v1.StorageEventSource
+	StorageEventStatus = v1.StorageEventStatus
 
 	InvoiceStatus      = v1.InvoiceStatus
 	InvoiceLineType    = v1.InvoiceLineType
@@ -762,4 +787,28 @@ const (
 	DunningStageSuspended      = v1.DunningStage_DUNNING_STAGE_SUSPENDED
 	DunningStageDeletionWarned = v1.DunningStage_DUNNING_STAGE_DELETION_WARNED
 	DunningStageWrittenOff     = v1.DunningStage_DUNNING_STAGE_WRITTEN_OFF
+)
+
+// StorageEventSource values — which provider shape a delivery arrived in.
+// Detected from the payload; you never declare it.
+const (
+	StorageEventSourceUnspecified = v1.StorageEventSource_STORAGE_EVENT_SOURCE_UNSPECIFIED
+	StorageEventSourceS3SNS       = v1.StorageEventSource_STORAGE_EVENT_SOURCE_S3_SNS
+	StorageEventSourceGCSPubSub   = v1.StorageEventSource_STORAGE_EVENT_SOURCE_GCS_PUBSUB
+	StorageEventSourceSupabase    = v1.StorageEventSource_STORAGE_EVENT_SOURCE_SUPABASE
+	StorageEventSourceGeneric     = v1.StorageEventSource_STORAGE_EVENT_SOURCE_GENERIC
+)
+
+// StorageEventStatus values — what happened to a delivery. Skipped is a
+// deliberate no-op (the filters missed, the rule was paused, the object was
+// already ingested) and Failed is a refusal that will not be retried; both
+// carry a slug in StorageEvent.GetReason(), and both can be re-queued with
+// [IngestRules.ReplayEvent].
+const (
+	StorageEventStatusUnspecified = v1.StorageEventStatus_STORAGE_EVENT_STATUS_UNSPECIFIED
+	StorageEventStatusReceived    = v1.StorageEventStatus_STORAGE_EVENT_STATUS_RECEIVED
+	StorageEventStatusMatched     = v1.StorageEventStatus_STORAGE_EVENT_STATUS_MATCHED
+	StorageEventStatusSkipped     = v1.StorageEventStatus_STORAGE_EVENT_STATUS_SKIPPED
+	StorageEventStatusCreated     = v1.StorageEventStatus_STORAGE_EVENT_STATUS_CREATED
+	StorageEventStatusFailed      = v1.StorageEventStatus_STORAGE_EVENT_STATUS_FAILED
 )

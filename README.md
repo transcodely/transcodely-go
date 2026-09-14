@@ -250,6 +250,85 @@ origin, err := client.Origins.Create(ctx, &transcodely.OriginCreateParams{
 > `Jurisdiction` alongside `AccountId`. Both rules are enforced server-side and
 > surface as an `*transcodely.InvalidRequestError`.
 
+## Ingest rules
+
+An ingest rule is a standing instruction on one readable origin: *when an object
+matching these filters lands, create this job for it*. Your storage provider
+posts its object-created events to the rule's endpoint, and no server of yours
+is in the path. Amazon S3 via SNS, Google Cloud Storage via a Pub/Sub push
+subscription, Supabase Storage via a database webhook, and a generic shape for
+anything else are all recognised from the payload.
+
+```go
+created, err := client.IngestRules.Create(ctx, &transcodely.IngestRuleCreateParams{
+    OriginId: "ori_a1b2c3d4e5f6",
+    Name:     "Watch uploads/",
+    Filters: &transcodely.IngestRuleFilters{
+        Prefix:   "uploads/",
+        Suffixes: []string{".mp4", ".mov"},
+        MinBytes: 1024, // ignore the zero-byte placeholder some clients write first
+    },
+    Action: &transcodely.IngestRuleAction{
+        Outputs:  []*transcodely.OutputSpec{{Preset: proto.String("web_1080p_standard")}},
+        Managed:  true, // host and deliver the result; set OutputOriginId for your own bucket
+        Priority: transcodely.JobPriorityStandard,
+    },
+})
+if err != nil {
+    log.Fatal(err)
+}
+
+log.Printf("point your bucket notifications at %s", created.Rule.GetEndpointUrl())
+log.Printf("secret (shown once): %s", created.Secret)
+```
+
+`created.Secret` is the **only** time the inbound secret is readable — store it
+wherever the event sender will read it from. A later `Get` returns just
+`GetSecretPrefix()` and `GetSecretHint()`. Lost it? `Update` with
+`RotateSecret: true` issues a new one, and the previous one keeps working for
+24 hours so the sender can be changed without dropping an event.
+
+Every delivery is recorded, whether or not it became a job:
+
+```go
+events := client.IngestRules.ListEvents(ctx, &transcodely.IngestEventListParams{
+    RuleId: proto.String(created.Rule.GetId()),
+})
+for events.Next() {
+    e := events.Current()
+    log.Printf("%s %s %s -> %s %s", e.GetId(), e.GetSource(), e.GetObjectKey(), e.GetStatus(), e.GetReason())
+}
+if err := events.Err(); err != nil {
+    log.Fatal(err)
+}
+```
+
+A `skipped` event names why in `GetReason()` — `filter_prefix`, `filter_suffix`,
+`filter_content_type`, `filter_size`, `bucket_mismatch`, `rule_disabled`, or
+`duplicate`. A `failed` one carries the API error code that refused the job,
+such as `limit_exceeded`.
+
+Deduplication is permanent: an object is identified by (rule, bucket, key,
+etag), so re-sending the event or re-uploading the same bytes produces nothing.
+To give an object another pass — one that arrived while the rule was paused, or
+was refused while the account was over its cap — replay it:
+
+```go
+replayed, err := client.IngestRules.ReplayEvent(ctx, "sev_a1b2c3d4e5f6g7")
+if err != nil {
+    log.Fatal(err)
+}
+log.Printf("%s is back in %s", replayed.GetId(), replayed.GetStatus())
+```
+
+Only `skipped` and `failed` events can be replayed. When an `Update` switches a
+paused rule back on, the response tells you how large that backlog is in
+`EventsSkippedWhileDisabled`.
+
+Before wiring the provider up, dry-run a key against the rule with
+`client.IngestRules.Test(...)`: it reports whether the filters match and, when
+they do, the exact job request the rule would submit. Nothing is stored.
+
 ## Configuration
 
 | Option | Default | Notes |

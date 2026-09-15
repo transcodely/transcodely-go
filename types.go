@@ -196,12 +196,22 @@ type (
 
 	HDRConfig = v1.HDRConfig
 
-	// Content-aware encoding is currently unavailable. The API rejects any job
-	// create request that sets content_aware (per-title or auto-ABR) on an
-	// output with InvalidArgument — rule "parameter_unsupported" on
-	// outputs[i].content_aware — until worker support ships. These types stay
-	// exported for forward compatibility. See
+	// ContentAwareConfig turns on per-title encoding for one output: the
+	// worker finds the CRF this source needs to reach the VMAF target and
+	// encodes the declared ladder at it, priced at 1.5x. The ladder is
+	// unchanged, so the price quoted at create still holds, and what the
+	// search decided comes back on OutputReport.GetContentAware().
+	//
+	// ContentAwareModePerTitle is accepted. ContentAwareModeAutoABR is still
+	// rejected at create with InvalidArgument — rule "parameter_unsupported"
+	// on outputs[i].content_aware — because it would change the number of
+	// renditions after the job was quoted per rendition. AutoABRConfig is
+	// exported for that mode and has no effect until it ships. See
 	// https://github.com/transcodely/api/issues/167.
+	//
+	// Per-title also needs at least one video rendition that is not pinned to
+	// an explicit bitrate ("parameter_incompatible" at create) and a source of
+	// at least 120 seconds ("per_title_source_too_short", at probe).
 	ContentAwareConfig = v1.ContentAwareConfig
 	AutoABRConfig      = v1.AutoABRConfig
 	ContentAnalysis    = v1.ContentAnalysis

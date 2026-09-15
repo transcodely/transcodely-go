@@ -99,8 +99,23 @@ func (i *IngestRules) List(ctx context.Context, params *IngestRuleListParams) *I
 }
 
 // Update mutates a rule's name, enabled state, filters or action, and
-// optionally rotates its secret. Omitted fields are left unchanged; sending an
-// empty Filters clears every filter, so the rule matches everything.
+// optionally rotates its secret. It MERGES: every field is optional and an
+// update applies only what it carries, down to the individual filters and the
+// individual parts of the action. Narrowing a rule to a new prefix is
+// therefore Filters with only Prefix set, and the suffix, content-type and
+// size filters are left alone.
+//
+// Removing something rather than changing it takes the two clear flags.
+// ClearFilters empties the filter set before Filters is applied — on its own
+// it widens the rule to every object in the bucket, and together with Filters
+// it replaces the set outright. ClearAction throws the stored action away, so
+// Action must then be complete: at least one output and exactly one
+// destination. That is the only way to drop an action's thumbnails or
+// metadata, since a repeated or map field sent empty reads as "not sent".
+//
+// For the same reason Managed: false does not turn managed storage off — a
+// false boolean is indistinguishable from an absent one, so it leaves the
+// destination alone. Send OutputOriginId instead.
 //
 // After a rotation the previous secret keeps working for 24 hours, so the
 // sender can be updated without dropping an event.

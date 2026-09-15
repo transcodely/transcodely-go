@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -310,5 +311,47 @@ func TestIngestRules_FacadeSurfacesSecretsAndBacklog(t *testing.T) {
 	}
 	if got, want := fake.gotReplay.GetEventId(), "sev_a1b2c3d4e5f6g7"; got != want {
 		t.Errorf("sent event_id = %q, want %q", got, want)
+	}
+}
+
+// Update merges, so removing a filter or part of an action takes an explicit
+// flag rather than an empty value. Both flags ride on the params struct and
+// reach the wire under their snake_case names — without them a caller has no
+// way to widen a rule or drop an action's thumbnails.
+func TestIngestRules_UpdateCarriesTheClearFlags(t *testing.T) {
+	fake := &fakeIngestClient{
+		update: &v1.UpdateIngestRuleResponse{
+			Rule: &v1.IngestRule{Id: "ing_a1b2c3d4e5f6"},
+		},
+	}
+	rules := newIngestRules(fake)
+
+	params := &IngestRuleUpdateParams{
+		Id:           "ing_a1b2c3d4e5f6",
+		ClearFilters: true,
+		ClearAction:  true,
+		Action: &IngestRuleAction{
+			Managed: true,
+			Outputs: []*OutputSpec{{Type: OutputFormatHLS}},
+		},
+	}
+	if _, err := rules.Update(context.Background(), params); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if !fake.gotUpdate.GetClearFilters() {
+		t.Error("clear_filters was not sent")
+	}
+	if !fake.gotUpdate.GetClearAction() {
+		t.Error("clear_action was not sent")
+	}
+
+	encoded, err := codec.NewProtoJSONCodec().Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, field := range []string{`"clear_filters":true`, `"clear_action":true`} {
+		if !strings.Contains(string(encoded), field) {
+			t.Errorf("encoded request %s is missing %s", encoded, field)
+		}
 	}
 }

@@ -4,6 +4,16 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.9](https://github.com/transcodely/transcodely-go/compare/v0.3.8...v0.3.9) (2026-09-15)
+
+
+### Features
+
+* **proto:** sync content-analysis report (per-title) ([#54](https://github.com/transcodely/transcodely-go/issues/54)) ([b277482](https://github.com/transcodely/transcodely-go/commit/b277482a0a1010ef29ebecb31401b04e64370297))
+* **proto:** sync IngestRuleService (ingest rules) ([#53](https://github.com/transcodely/transcodely-go/issues/53)) ([d8a37a4](https://github.com/transcodely/transcodely-go/commit/d8a37a48274613490a9da899940ec86f4d64655b))
+* **proto:** sync OutputReport (job output facts + verdict) ([#51](https://github.com/transcodely/transcodely-go/issues/51)) ([80b7537](https://github.com/transcodely/transcodely-go/commit/80b75375ab71fcb4527692694498209dfe21089d))
+* **proto:** sync protos to api 5.21.0 — optional app_id, per-title accepted, ingest-rule clear flags ([#55](https://github.com/transcodely/transcodely-go/issues/55)) ([c9cd19f](https://github.com/transcodely/transcodely-go/commit/c9cd19f80789cfc31b86fca7ffaae531a532a902))
+
 ## [0.3.8](https://github.com/transcodely/transcodely-go/compare/v0.3.7...v0.3.8) (2026-08-16)
 
 

@@ -63,7 +63,20 @@ type (
 	// scores those samples and never the delivered output, which is not scored
 	// at all. The facts about the delivered file are the other OutputReport
 	// fields.
+	//
+	// GetSeedCrf() is the CRF the rung would have used without the search, so
+	// comparing it with GetCrfChosen() shows what per-title changed.
+	// GetMetTarget() reports whether the search actually reached the target: a
+	// false means GetCrfChosen() is the best of a set that all fell short.
+	// GetProbes() is every point it measured, empty on analyses that predate
+	// probe reporting.
 	OutputReportContentAware = v1.OutputReportContentAware
+	// OutputReportContentAwareProbe is one measured point on the search's
+	// VMAF/CRF curve: a short cut of the source encoded at GetCrf() and scored
+	// at GetVmaf(). GetBitrateKbps() is that sample's VIDEO-ONLY rate — the
+	// search's cuts carry no audio, subtitles or data — so it compares with
+	// another probe but never with a delivered file's muxed bitrate.
+	OutputReportContentAwareProbe = v1.OutputReportContentAwareProbe
 
 	PricingSnapshot        = v1.PricingSnapshot
 	VariantPricingSnapshot = v1.VariantPricingSnapshot

@@ -135,6 +135,31 @@ reached on its samples, and the CRF it chose. It describes the SEARCH, not the
 delivered file — `GetVmafAchieved()` scores short samples taken before the real
 encode, which is never scored itself. It is nil on every ordinary output.
 
+The same value carries the search curve. `GetSeedCrf()` is the CRF the rung
+would have used without the search, so comparing it with `GetCrfChosen()` shows
+what per-title actually changed. `GetMetTarget()` reports whether the target was
+reached — when it is false, the chosen CRF is the best of a set that all fell
+short. `GetProbes()` lists every point the search measured, in order:
+
+```go
+ca := report.GetContentAware()
+if ca != nil {
+    log.Printf("seed CRF %d → chose %d (met target: %t)",
+        ca.GetSeedCrf(), ca.GetCrfChosen(), ca.GetMetTarget())
+    for _, p := range ca.GetProbes() {
+        log.Printf("  crf %d → vmaf %.2f, %.0f kbps",
+            p.GetCrf(), p.GetVmaf(), p.GetBitrateKbps())
+    }
+}
+```
+
+A probe's `GetBitrateKbps()` is the sample's **video-only** rate — the search's
+cuts drop audio, subtitles and data streams. Two probes compare directly against
+each other, because each is the same cut of the source; comparing one against a
+delivered file's bitrate, which includes every stream that file carries, compares
+two different things. `GetProbes()` is empty on analyses that predate probe
+reporting.
+
 ## Iterate every job
 
 ```go

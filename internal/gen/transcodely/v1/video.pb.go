@@ -3482,7 +3482,9 @@ type GetSeoMarkupResponse struct {
 	// `<script type="application/ld+json">`. Includes name, description,
 	// thumbnailUrl, uploadDate, duration (ISO 8601), embedUrl and, when the
 	// video has ready insights, hasPart Clip key moments from its chapters,
-	// each linking to watch_url at the chapter start.
+	// each linking to watch_url at the chapter start. thumbnailUrl and embedUrl
+	// are stable player URLs that never expire (the thumbnail redirects to the
+	// current poster), so the markup can be stored as-is.
 	JsonLd string `protobuf:"bytes,1,opt,name=json_ld,json=jsonLd,proto3" json:"json_ld,omitempty"`
 	// A `<url>` entry for a video sitemap (namespace
 	// xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"), to add

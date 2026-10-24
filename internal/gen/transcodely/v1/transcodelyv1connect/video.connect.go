@@ -130,7 +130,9 @@ type VideoServiceClient interface {
 	// Get ready-to-paste SEO markup for showing a video on your own page:
 	// schema.org VideoObject JSON-LD (with chapter key moments when the video
 	// has insights), a video sitemap entry, and a server-renderable HTML
-	// fragment with the summary, chapters and full transcript.
+	// fragment with the summary, chapters and full transcript. The video must be
+	// ready and public or unlisted; other videos are refused with
+	// failed_precondition.
 	GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error)
 }
 
@@ -395,7 +397,9 @@ type VideoServiceHandler interface {
 	// Get ready-to-paste SEO markup for showing a video on your own page:
 	// schema.org VideoObject JSON-LD (with chapter key moments when the video
 	// has insights), a video sitemap entry, and a server-renderable HTML
-	// fragment with the summary, chapters and full transcript.
+	// fragment with the summary, chapters and full transcript. The video must be
+	// ready and public or unlisted; other videos are refused with
+	// failed_precondition.
 	GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error)
 }
 

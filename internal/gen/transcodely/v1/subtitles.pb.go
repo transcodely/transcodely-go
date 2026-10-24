@@ -147,14 +147,18 @@ func (SubtitleFormat) EnumDescriptor() ([]byte, []int) {
 }
 
 // How the txt and md transcript renditions are written. The json rendition
-// always carries every word verbatim, with the filler words flagged.
+// always carries every word verbatim, with the removable words flagged.
 type TranscriptStyle int32
 
 const (
 	TranscriptStyle_TRANSCRIPT_STYLE_UNSPECIFIED TranscriptStyle = 0
-	// Readable text: filler words ("um", "uh"), stutters and immediately
-	// repeated words are removed. No word is ever changed, reordered or added.
-	// The default.
+	// Readable text, conservatively cleaned. Removed: non-lexical interjections
+	// that are not words in the language (e.g. English "um", "uh", "er",
+	// "erm", "hmm"), and an immediate exact repeat of a short function word
+	// ("the the", "and and"; a per-language allowlist). Content words are never
+	// removed, even when repeated ("very, very", "no, no, no"), and no word is
+	// ever changed, reordered or added. Sentence punctuation is preserved. The
+	// default.
 	TranscriptStyle_TRANSCRIPT_STYLE_CLEAN TranscriptStyle = 1
 	// True verbatim: every recognized word, fillers included.
 	TranscriptStyle_TRANSCRIPT_STYLE_LITERAL TranscriptStyle = 2
@@ -459,8 +463,9 @@ type SubtitleTrack struct {
 	// AI insights over the generated transcript: title suggestions, a summary,
 	// key points, chapters, questions the content answers, key terms, quotable
 	// highlights and topics. Only valid with the `generate` operation. Opt-in
-	// and billed as the `insights` fee per source minute with a per-job minimum
-	// (see Job.fees); a job whose insights fail is not charged for them.
+	// and billed at EUR 0.02 per video plus EUR 0.005 per source minute (the
+	// `insights_job` and `insights` fees, see Job.fees); a job whose insights
+	// fail is not charged for them.
 	//
 	// Insights run after the job completes, so they arrive slightly later than
 	// the captions: watch Job.insights (status pending → ready | failed) or

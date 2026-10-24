@@ -3306,8 +3306,14 @@ type JobFee struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Fee discriminator:
 	//
-	//	"processing" — the flat per-job processing fee (see Job.fees).
-	//	"captions"   — AI caption generation.
+	//	"processing"   — the flat per-job processing fee (see Job.fees).
+	//	"captions"     — AI caption generation (transcript renditions included).
+	//	"insights"     — AI insights, the per-source-minute part (EUR 0.005/min).
+	//	"insights_job" — AI insights, the per-video part (EUR 0.02).
+	//
+	// The two insights fees stay estimated until the insights are ready (after
+	// the job completes), then are confirmed together, or voided together when
+	// the insights fail.
 	FeeType string `protobuf:"bytes,1,opt,name=fee_type,json=feeType,proto3" json:"fee_type,omitempty"`
 	// Human-readable description of what the fee is for
 	// (e.g., "Processing fee", "AI Caption Generation").

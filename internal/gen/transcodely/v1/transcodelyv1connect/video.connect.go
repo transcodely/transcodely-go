@@ -74,6 +74,9 @@ const (
 	// VideoServiceListTopVideosProcedure is the fully-qualified name of the VideoService's
 	// ListTopVideos RPC.
 	VideoServiceListTopVideosProcedure = "/transcodely.v1.VideoService/ListTopVideos"
+	// VideoServiceGetSeoMarkupProcedure is the fully-qualified name of the VideoService's GetSeoMarkup
+	// RPC.
+	VideoServiceGetSeoMarkupProcedure = "/transcodely.v1.VideoService/GetSeoMarkup"
 )
 
 // VideoServiceClient is a client for the transcodely.v1.VideoService service.
@@ -124,6 +127,11 @@ type VideoServiceClient interface {
 	GetStats(context.Context, *connect.Request[v1.GetStatsRequest]) (*connect.Response[v1.GetStatsResponse], error)
 	// List an app's top videos ranked by plays over a date range.
 	ListTopVideos(context.Context, *connect.Request[v1.ListTopVideosRequest]) (*connect.Response[v1.ListTopVideosResponse], error)
+	// Get ready-to-paste SEO markup for showing a video on your own page:
+	// schema.org VideoObject JSON-LD (with chapter key moments when the video
+	// has insights), a video sitemap entry, and a server-renderable HTML
+	// fragment with the summary, chapters and full transcript.
+	GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error)
 }
 
 // NewVideoServiceClient constructs a client for the transcodely.v1.VideoService service. By
@@ -227,6 +235,12 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(videoServiceMethods.ByName("ListTopVideos")),
 			connect.WithClientOptions(opts...),
 		),
+		getSeoMarkup: connect.NewClient[v1.GetSeoMarkupRequest, v1.GetSeoMarkupResponse](
+			httpClient,
+			baseURL+VideoServiceGetSeoMarkupProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("GetSeoMarkup")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -247,6 +261,7 @@ type videoServiceClient struct {
 	getUsage                *connect.Client[v1.GetUsageRequest, v1.GetUsageResponse]
 	getStats                *connect.Client[v1.GetStatsRequest, v1.GetStatsResponse]
 	listTopVideos           *connect.Client[v1.ListTopVideosRequest, v1.ListTopVideosResponse]
+	getSeoMarkup            *connect.Client[v1.GetSeoMarkupRequest, v1.GetSeoMarkupResponse]
 }
 
 // CreateUpload calls transcodely.v1.VideoService.CreateUpload.
@@ -324,6 +339,11 @@ func (c *videoServiceClient) ListTopVideos(ctx context.Context, req *connect.Req
 	return c.listTopVideos.CallUnary(ctx, req)
 }
 
+// GetSeoMarkup calls transcodely.v1.VideoService.GetSeoMarkup.
+func (c *videoServiceClient) GetSeoMarkup(ctx context.Context, req *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error) {
+	return c.getSeoMarkup.CallUnary(ctx, req)
+}
+
 // VideoServiceHandler is an implementation of the transcodely.v1.VideoService service.
 type VideoServiceHandler interface {
 	// Create a presigned upload URL for direct browser/client upload.
@@ -372,6 +392,11 @@ type VideoServiceHandler interface {
 	GetStats(context.Context, *connect.Request[v1.GetStatsRequest]) (*connect.Response[v1.GetStatsResponse], error)
 	// List an app's top videos ranked by plays over a date range.
 	ListTopVideos(context.Context, *connect.Request[v1.ListTopVideosRequest]) (*connect.Response[v1.ListTopVideosResponse], error)
+	// Get ready-to-paste SEO markup for showing a video on your own page:
+	// schema.org VideoObject JSON-LD (with chapter key moments when the video
+	// has insights), a video sitemap entry, and a server-renderable HTML
+	// fragment with the summary, chapters and full transcript.
+	GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error)
 }
 
 // NewVideoServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -471,6 +496,12 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(videoServiceMethods.ByName("ListTopVideos")),
 		connect.WithHandlerOptions(opts...),
 	)
+	videoServiceGetSeoMarkupHandler := connect.NewUnaryHandler(
+		VideoServiceGetSeoMarkupProcedure,
+		svc.GetSeoMarkup,
+		connect.WithSchema(videoServiceMethods.ByName("GetSeoMarkup")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.VideoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VideoServiceCreateUploadProcedure:
@@ -503,6 +534,8 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceGetStatsHandler.ServeHTTP(w, r)
 		case VideoServiceListTopVideosProcedure:
 			videoServiceListTopVideosHandler.ServeHTTP(w, r)
+		case VideoServiceGetSeoMarkupProcedure:
+			videoServiceGetSeoMarkupHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -570,4 +603,8 @@ func (UnimplementedVideoServiceHandler) GetStats(context.Context, *connect.Reque
 
 func (UnimplementedVideoServiceHandler) ListTopVideos(context.Context, *connect.Request[v1.ListTopVideosRequest]) (*connect.Response[v1.ListTopVideosResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.ListTopVideos is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GetSeoMarkup is not implemented"))
 }

@@ -160,6 +160,63 @@ delivered file's bitrate, which includes every stream that file carries, compare
 two different things. `GetProbes()` is empty on analyses that predate probe
 reporting.
 
+## Transcripts and insights
+
+Every auto-generated caption track (subtitle operation `generate`) also writes
+the transcript as `json`, `txt` and `md`. Ask for the opt-in insights pass
+(summary, key points, chapters, questions, terms, highlights) on the same track:
+
+```go
+style := transcodely.TranscriptStyleClean // default; TranscriptStyleLiteral keeps fillers
+track := &transcodely.SubtitleTrack{
+    Operation:  transcodely.SubtitleOpGenerate,
+    Transcript: &transcodely.TranscriptOptions{Style: &style},
+    Insights:   &transcodely.InsightsOptions{Enabled: true},
+}
+```
+
+On a hosted video each rendition carries a short-lived `signed_url`, re-issued
+on every read, so fetch the video right before downloading:
+
+```go
+video, err := client.Videos.Get(ctx, videoID)
+if err != nil {
+    log.Fatal(err)
+}
+for _, track := range video.GetTextTracks() {
+    for _, r := range track.GetTranscriptRenditions() {
+        if r.GetFormat() == transcodely.TranscriptFormatTXT {
+            resp, err := http.Get(r.GetSignedUrl()) // plain-text transcript
+            // ...
+        }
+    }
+}
+for _, ins := range video.GetInsights() {
+    if ins.GetStatus() == transcodely.InsightsStatusReady {
+        log.Println(ins.GetSummary())
+        for _, ch := range ins.GetChapters() {
+            log.Printf("%6.1fs  %s", ch.GetStartSeconds(), ch.GetTitle())
+        }
+    }
+}
+```
+
+Jobs carry the same data: `job.GetSubtitleResults()[i].GetTranscriptRenditions()`
+and `job.GetInsights()`. The `job.insights.ready` and `job.insights.failed`
+webhook events (`transcodely.EventTypeJobInsightsReady` / `...Failed`) tell
+you when an insights pass finishes.
+
+For your own watch page, `client.Videos.GetSeoMarkup` returns ready-to-paste
+JSON-LD, a video-sitemap entry and an HTML fragment with the transcript:
+
+```go
+kit, err := client.Videos.GetSeoMarkup(ctx, &transcodely.VideoGetSeoMarkupParams{
+    VideoId:  videoID,
+    WatchUrl: "https://example.com/watch/42",
+})
+// kit.GetJsonLd(), kit.GetSitemapEntry(), kit.GetHtmlFragment()
+```
+
 ## Iterate every job
 
 ```go
@@ -384,6 +441,7 @@ See [`examples/`](../../examples/go) for ready-to-run programs:
 - `02_watch_job` — stream a job to completion
 - `03_pagination` — iterate every job
 - `04_error_handling` — typed error matching
+- `08_transcript_insights` — download a hosted video's transcript and print its insights
 
 ## Generated code
 

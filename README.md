@@ -435,7 +435,7 @@ into `New(...)` so your callers stay in control.
 
 ## Examples
 
-See [`examples/`](../../examples/go) for ready-to-run programs:
+See [`examples/`](examples/) for ready-to-run programs:
 
 - `01_create_job` — submit a job
 - `02_watch_job` — stream a job to completion

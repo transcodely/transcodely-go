@@ -4,6 +4,13 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.11](https://github.com/transcodely/transcodely-go/compare/v0.3.10...v0.3.11) (2026-10-25)
+
+
+### Features
+
+* transcripts & insights surface (proto sync) ([#58](https://github.com/transcodely/transcodely-go/issues/58)) ([2140c31](https://github.com/transcodely/transcodely-go/commit/2140c31495556b79443da116ee3ca79986a6b733))
+
 ## [0.3.10](https://github.com/transcodely/transcodely-go/compare/v0.3.9...v0.3.10) (2026-09-22)
 
 

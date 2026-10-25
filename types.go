@@ -247,7 +247,8 @@ type (
 	// as TranscriptRendition entries on SubtitleResult.TranscriptRenditions and
 	// VideoTextTrack.TranscriptRenditions. Insights are an opt-in pass over the
 	// transcript, reported as TranscriptInsights on Job.Insights and
-	// Video.Insights (status pending -> ready | failed).
+	// Video.Insights (status pending -> ready | failed). Videos.GenerateInsights
+	// runs the same pass over a hosted video's existing captions (source video).
 	TranscriptOptions   = v1.TranscriptOptions
 	InsightsOptions     = v1.InsightsOptions
 	TranscriptRendition = v1.TranscriptRendition
@@ -300,6 +301,8 @@ type (
 	VideoListTopVideosParams     = v1.ListTopVideosRequest
 	VideoGetSeoMarkupParams      = v1.GetSeoMarkupRequest
 	VideoSeoMarkup               = v1.GetSeoMarkupResponse
+	VideoGenerateInsightsParams  = v1.GenerateInsightsRequest
+	VideoGenerateInsightsResult  = v1.GenerateInsightsResponse
 	PresetCreateParams           = v1.CreatePresetRequest
 	PresetUpdateParams           = v1.UpdatePresetRequest
 	PresetListParams             = v1.ListPresetsRequest
@@ -401,6 +404,7 @@ type (
 	TranscriptStyle  = v1.TranscriptStyle
 	TranscriptFormat = v1.TranscriptFormat
 	InsightsStatus   = v1.InsightsStatus
+	InsightsSource   = v1.InsightsSource
 
 	WatermarkAnchor = v1.WatermarkAnchor
 
@@ -646,6 +650,15 @@ const (
 	InsightsStatusPending     = v1.InsightsStatus_INSIGHTS_STATUS_PENDING
 	InsightsStatusReady       = v1.InsightsStatus_INSIGHTS_STATUS_READY
 	InsightsStatusFailed      = v1.InsightsStatus_INSIGHTS_STATUS_FAILED
+)
+
+// InsightsSource values. Job: requested on a captions job (fees on Job.Fees).
+// Video: requested with Videos.GenerateInsights on a hosted video's existing
+// captions (price on TranscriptInsights.FeeEur).
+const (
+	InsightsSourceUnspecified = v1.InsightsSource_INSIGHTS_SOURCE_UNSPECIFIED
+	InsightsSourceJob         = v1.InsightsSource_INSIGHTS_SOURCE_JOB
+	InsightsSourceVideo       = v1.InsightsSource_INSIGHTS_SOURCE_VIDEO
 )
 
 // WatermarkAnchor values. The relative-placement anchor region a watermark is

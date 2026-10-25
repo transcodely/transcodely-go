@@ -211,6 +211,24 @@ and `job.GetInsights()`. The `job.insights.ready` and `job.insights.failed`
 webhook events (`transcodely.EventTypeJobInsightsReady` / `...Failed`) tell
 you when an insights pass finishes.
 
+A hosted video that already has AI captions can get insights without
+transcribing again (EUR 0.02 per video + EUR 0.005 per source minute, charged
+only when ready):
+
+```go
+ins, err := client.Videos.GenerateInsights(ctx, &transcodely.VideoGenerateInsightsParams{
+    Id: videoID, // Language is needed only when the video has several AI caption tracks
+})
+if err != nil {
+    log.Fatal(err)
+}
+log.Println(ins.GetId(), ins.GetStatus()) // ins_..., pending
+```
+
+The entry also appears on `video.GetInsights()`. The `video.insights.ready` and
+`video.insights.failed` webhook events (`transcodely.EventTypeVideoInsightsReady`
+/ `...Failed`) carry the entry itself: read it with `event.Insights()`.
+
 For your own watch page, `client.Videos.GetSeoMarkup` returns ready-to-paste
 JSON-LD, a video-sitemap entry and an HTML fragment with the transcript:
 

@@ -25,8 +25,8 @@ func TestNew_WiresWebhookNamespaces(t *testing.T) {
 }
 
 func TestWebhookEventCatalog(t *testing.T) {
-	if len(WebhookEventTypes) != 20 {
-		t.Fatalf("WebhookEventTypes has %d entries, want 20", len(WebhookEventTypes))
+	if len(WebhookEventTypes) != 22 {
+		t.Fatalf("WebhookEventTypes has %d entries, want 22", len(WebhookEventTypes))
 	}
 	for _, et := range WebhookEventTypes {
 		if et == "job.updated" {
@@ -55,6 +55,23 @@ func TestWebhookEventCatalog(t *testing.T) {
 	if EventTypeJobInsightsFailed != "job.insights.failed" {
 		t.Errorf("EventTypeJobInsightsFailed = %q", EventTypeJobInsightsFailed)
 	}
+	if EventTypeVideoInsightsReady != "video.insights.ready" {
+		t.Errorf("EventTypeVideoInsightsReady = %q", EventTypeVideoInsightsReady)
+	}
+	if EventTypeVideoInsightsFailed != "video.insights.failed" {
+		t.Errorf("EventTypeVideoInsightsFailed = %q", EventTypeVideoInsightsFailed)
+	}
+	for _, want := range []EventType{EventTypeVideoInsightsReady, EventTypeVideoInsightsFailed} {
+		found := false
+		for _, et := range WebhookEventTypes {
+			if et == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("WebhookEventTypes is missing %q", want)
+		}
+	}
 }
 
 func TestResourceForEventType(t *testing.T) {
@@ -73,6 +90,10 @@ func TestResourceForEventType(t *testing.T) {
 		{"video.ready", "*Video"},
 		{"video.failed", "*Video"},
 		{"video.source_scheduled_for_deletion", "*Video"},
+		// video.insights.* share the "video." prefix but carry the
+		// TranscriptInsights entry, not a Video snapshot.
+		{"video.insights.ready", "*TranscriptInsights"},
+		{"video.insights.failed", "*TranscriptInsights"},
 		{"app.updated", "*App"},
 		// Spend-limit events share the "app." prefix but are notification
 		// payloads, not App snapshots — they must NOT decode to *App.
@@ -105,8 +126,51 @@ func typeName(v any) string {
 		return "*Video"
 	case *v1.App:
 		return "*App"
+	case *v1.TranscriptInsights:
+		return "*TranscriptInsights"
 	}
 	return "unknown"
+}
+
+func TestWebhookEvent_VideoInsights(t *testing.T) {
+	ev := &WebhookEvent{
+		Type: EventTypeVideoInsightsReady,
+		raw:  json.RawMessage(`{"id":"ins_abc123","source":"video","video_id":"vid_abc","language":"eng","status":"ready","summary":"A talk.","fee_eur":0.07}`),
+	}
+	ev.decodeData()
+	ins, ok := ev.Insights()
+	if !ok {
+		t.Fatalf("Insights() ok=false, data=%T", ev.data)
+	}
+	if ins.GetId() != "ins_abc123" || ins.GetSource() != InsightsSourceVideo ||
+		ins.GetVideoId() != "vid_abc" || ins.GetLanguage() != "eng" ||
+		ins.GetStatus() != InsightsStatusReady || ins.GetSummary() != "A talk." ||
+		ins.FeeEur == nil || ins.GetFeeEur() != 0.07 {
+		t.Errorf("Insights() = %+v, unexpected fields", ins)
+	}
+	if _, isVideo := ev.Video(); isVideo {
+		t.Error("Video() returned true for video.insights.ready, want false")
+	}
+
+	failed := &WebhookEvent{
+		Type: EventTypeVideoInsightsFailed,
+		raw:  json.RawMessage(`{"id":"ins_def456","source":"video","video_id":"vid_abc","status":"failed","error_code":"insights_failed"}`),
+	}
+	failed.decodeData()
+	fi, ok := failed.Insights()
+	if !ok || fi.GetStatus() != InsightsStatusFailed || fi.GetErrorCode() != "insights_failed" {
+		t.Errorf("failed Insights() = %+v, ok=%v", fi, ok)
+	}
+
+	// A plain video event still decodes to *Video and has no Insights.
+	ve := &WebhookEvent{Type: EventTypeVideoReady, raw: json.RawMessage(`{"id":"vid_abc"}`)}
+	ve.decodeData()
+	if _, ok := ve.Insights(); ok {
+		t.Error("Insights() returned true for video.ready, want false")
+	}
+	if v, ok := ve.Video(); !ok || v.GetId() != "vid_abc" {
+		t.Errorf("Video() = %v, %v for video.ready", v, ok)
+	}
 }
 
 func TestWebhookEvent_SpendLimit(t *testing.T) {

@@ -234,6 +234,29 @@ func (v *Videos) GetSeoMarkup(ctx context.Context, params *VideoGetSeoMarkupPara
 	return resp.Msg, nil
 }
 
+// GenerateInsights generates AI insights (title suggestions, summary, key
+// points, chapters, questions, key terms, highlights, topics) from a hosted
+// video's existing AI captions, without transcribing again, and returns the
+// entry in status pending. It also appears on Video.Insights, and the
+// video.insights.ready or video.insights.failed webhook fires when it
+// finishes. Billed EUR 0.02 per video plus EUR 0.005 per minute of source,
+// charged only when the insights become ready.
+//
+// While an entry for the same video and language is pending, the call returns
+// that entry and bills nothing new. Set params.Language when the video has
+// several AI caption tracks. A video without AI captions is refused with
+// failed_precondition (code captions_required).
+func (v *Videos) GenerateInsights(ctx context.Context, params *VideoGenerateInsightsParams) (*TranscriptInsights, error) {
+	if params == nil {
+		params = &VideoGenerateInsightsParams{}
+	}
+	resp, err := v.client.GenerateInsights(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetInsights(), nil
+}
+
 type videoWatchAdapter struct {
 	stream *connect.ServerStreamForClient[v1.WatchVideoResponse]
 }

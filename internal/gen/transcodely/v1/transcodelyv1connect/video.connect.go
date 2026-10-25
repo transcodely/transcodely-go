@@ -77,6 +77,9 @@ const (
 	// VideoServiceGetSeoMarkupProcedure is the fully-qualified name of the VideoService's GetSeoMarkup
 	// RPC.
 	VideoServiceGetSeoMarkupProcedure = "/transcodely.v1.VideoService/GetSeoMarkup"
+	// VideoServiceGenerateInsightsProcedure is the fully-qualified name of the VideoService's
+	// GenerateInsights RPC.
+	VideoServiceGenerateInsightsProcedure = "/transcodely.v1.VideoService/GenerateInsights"
 )
 
 // VideoServiceClient is a client for the transcodely.v1.VideoService service.
@@ -134,6 +137,22 @@ type VideoServiceClient interface {
 	// ready and public or unlisted; other videos are refused with
 	// failed_precondition.
 	GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error)
+	// Generate AI insights (title suggestions, summary, key points, chapters,
+	// questions, key terms, highlights, topics) from a hosted video's existing
+	// AI captions, without transcribing again. Billed EUR 0.02 per video plus
+	// EUR 0.005 per minute of source, charged only when the insights become
+	// ready. Returns the entry in "pending"; it also appears on Video.insights,
+	// and video.insights.ready or video.insights.failed fires when it finishes.
+	//
+	// While an entry for the same video and language is pending, the call
+	// returns that entry and bills nothing new. Once it is ready or failed, a
+	// new call generates (and bills) a new entry; it replaces the ready one
+	// only when it becomes ready itself.
+	//
+	// Refused with failed_precondition and code captions_required when the
+	// video has no AI captions, and insights_transcript_unavailable when the
+	// caption track has no transcript.
+	GenerateInsights(context.Context, *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error)
 }
 
 // NewVideoServiceClient constructs a client for the transcodely.v1.VideoService service. By
@@ -243,6 +262,12 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(videoServiceMethods.ByName("GetSeoMarkup")),
 			connect.WithClientOptions(opts...),
 		),
+		generateInsights: connect.NewClient[v1.GenerateInsightsRequest, v1.GenerateInsightsResponse](
+			httpClient,
+			baseURL+VideoServiceGenerateInsightsProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("GenerateInsights")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -264,6 +289,7 @@ type videoServiceClient struct {
 	getStats                *connect.Client[v1.GetStatsRequest, v1.GetStatsResponse]
 	listTopVideos           *connect.Client[v1.ListTopVideosRequest, v1.ListTopVideosResponse]
 	getSeoMarkup            *connect.Client[v1.GetSeoMarkupRequest, v1.GetSeoMarkupResponse]
+	generateInsights        *connect.Client[v1.GenerateInsightsRequest, v1.GenerateInsightsResponse]
 }
 
 // CreateUpload calls transcodely.v1.VideoService.CreateUpload.
@@ -346,6 +372,11 @@ func (c *videoServiceClient) GetSeoMarkup(ctx context.Context, req *connect.Requ
 	return c.getSeoMarkup.CallUnary(ctx, req)
 }
 
+// GenerateInsights calls transcodely.v1.VideoService.GenerateInsights.
+func (c *videoServiceClient) GenerateInsights(ctx context.Context, req *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error) {
+	return c.generateInsights.CallUnary(ctx, req)
+}
+
 // VideoServiceHandler is an implementation of the transcodely.v1.VideoService service.
 type VideoServiceHandler interface {
 	// Create a presigned upload URL for direct browser/client upload.
@@ -401,6 +432,22 @@ type VideoServiceHandler interface {
 	// ready and public or unlisted; other videos are refused with
 	// failed_precondition.
 	GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error)
+	// Generate AI insights (title suggestions, summary, key points, chapters,
+	// questions, key terms, highlights, topics) from a hosted video's existing
+	// AI captions, without transcribing again. Billed EUR 0.02 per video plus
+	// EUR 0.005 per minute of source, charged only when the insights become
+	// ready. Returns the entry in "pending"; it also appears on Video.insights,
+	// and video.insights.ready or video.insights.failed fires when it finishes.
+	//
+	// While an entry for the same video and language is pending, the call
+	// returns that entry and bills nothing new. Once it is ready or failed, a
+	// new call generates (and bills) a new entry; it replaces the ready one
+	// only when it becomes ready itself.
+	//
+	// Refused with failed_precondition and code captions_required when the
+	// video has no AI captions, and insights_transcript_unavailable when the
+	// caption track has no transcript.
+	GenerateInsights(context.Context, *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error)
 }
 
 // NewVideoServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -506,6 +553,12 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(videoServiceMethods.ByName("GetSeoMarkup")),
 		connect.WithHandlerOptions(opts...),
 	)
+	videoServiceGenerateInsightsHandler := connect.NewUnaryHandler(
+		VideoServiceGenerateInsightsProcedure,
+		svc.GenerateInsights,
+		connect.WithSchema(videoServiceMethods.ByName("GenerateInsights")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.VideoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VideoServiceCreateUploadProcedure:
@@ -540,6 +593,8 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceListTopVideosHandler.ServeHTTP(w, r)
 		case VideoServiceGetSeoMarkupProcedure:
 			videoServiceGetSeoMarkupHandler.ServeHTTP(w, r)
+		case VideoServiceGenerateInsightsProcedure:
+			videoServiceGenerateInsightsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -611,4 +666,8 @@ func (UnimplementedVideoServiceHandler) ListTopVideos(context.Context, *connect.
 
 func (UnimplementedVideoServiceHandler) GetSeoMarkup(context.Context, *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GetSeoMarkup is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) GenerateInsights(context.Context, *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GenerateInsights is not implemented"))
 }

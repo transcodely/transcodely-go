@@ -3796,7 +3796,8 @@ type CreateJobRequest struct {
 	// Optional target app. API-key callers may omit it (their key's app is used)
 	// or pass their own app; a different app is rejected with PermissionDenied.
 	// Portal/JWT callers pass it to create in a specific app in their org;
-	// omitted selects the org's first active app.
+	// omitted selects the org's first active app, or, when input_video_id
+	// names a video in the org, that video's app.
 	AppId *string `protobuf:"bytes,21,opt,name=app_id,json=appId,proto3,oneof" json:"app_id,omitempty"`
 	// Encode only a sub-range of the input (job-level; applies to all outputs).
 	// Omit to encode the full input. See ClipConfig for range semantics and

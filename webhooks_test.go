@@ -25,8 +25,8 @@ func TestNew_WiresWebhookNamespaces(t *testing.T) {
 }
 
 func TestWebhookEventCatalog(t *testing.T) {
-	if len(WebhookEventTypes) != 18 {
-		t.Fatalf("WebhookEventTypes has %d entries, want 18", len(WebhookEventTypes))
+	if len(WebhookEventTypes) != 20 {
+		t.Fatalf("WebhookEventTypes has %d entries, want 20", len(WebhookEventTypes))
 	}
 	for _, et := range WebhookEventTypes {
 		if et == "job.updated" {
@@ -49,6 +49,12 @@ func TestWebhookEventCatalog(t *testing.T) {
 	if EventTypeAppSpendLimitExceeded != "app.spend_limit_exceeded" {
 		t.Errorf("EventTypeAppSpendLimitExceeded = %q", EventTypeAppSpendLimitExceeded)
 	}
+	if EventTypeJobInsightsReady != "job.insights.ready" {
+		t.Errorf("EventTypeJobInsightsReady = %q", EventTypeJobInsightsReady)
+	}
+	if EventTypeJobInsightsFailed != "job.insights.failed" {
+		t.Errorf("EventTypeJobInsightsFailed = %q", EventTypeJobInsightsFailed)
+	}
 }
 
 func TestResourceForEventType(t *testing.T) {
@@ -58,6 +64,9 @@ func TestResourceForEventType(t *testing.T) {
 	}{
 		{"job.succeeded", "*Job"},
 		{"job.progress", "*Job"},
+		// Insights events carry a job snapshot like the other job.* events.
+		{"job.insights.ready", "*Job"},
+		{"job.insights.failed", "*Job"},
 		{"output.ready", "*JobOutput"},
 		{"output.progress", "*JobOutput"},
 		{"video.uploaded", "*Video"},

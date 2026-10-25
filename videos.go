@@ -217,6 +217,23 @@ func (v *Videos) ListTopVideos(ctx context.Context, params *VideoListTopVideosPa
 	return resp.Msg, nil
 }
 
+// GetSeoMarkup returns ready-to-paste SEO markup for a hosted video, built for
+// YOUR watch page (params.WatchUrl, absolute https): a schema.org VideoObject
+// JSON-LD block (with chapter Clip key moments when insights are ready), a
+// video-sitemap <url> entry, and a server-renderable HTML fragment with the
+// summary, key points, chapter links and the full transcript. Every string is
+// escaped for its context; paste it as-is.
+func (v *Videos) GetSeoMarkup(ctx context.Context, params *VideoGetSeoMarkupParams) (*VideoSeoMarkup, error) {
+	if params == nil {
+		params = &VideoGetSeoMarkupParams{}
+	}
+	resp, err := v.client.GetSeoMarkup(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg, nil
+}
+
 type videoWatchAdapter struct {
 	stream *connect.ServerStreamForClient[v1.WatchVideoResponse]
 }

@@ -241,6 +241,21 @@ type (
 	ChapterPoint  = v1.ChapterPoint
 	ChapterResult = v1.ChapterResult
 
+	// TranscriptOptions and InsightsOptions ride on a `generate` SubtitleTrack
+	// (Transcript / Insights fields). Every generate track writes three
+	// transcript renditions (json, txt, md) next to the caption file, reported
+	// as TranscriptRendition entries on SubtitleResult.TranscriptRenditions and
+	// VideoTextTrack.TranscriptRenditions. Insights are an opt-in pass over the
+	// transcript, reported as TranscriptInsights on Job.Insights and
+	// Video.Insights (status pending -> ready | failed).
+	TranscriptOptions   = v1.TranscriptOptions
+	InsightsOptions     = v1.InsightsOptions
+	TranscriptRendition = v1.TranscriptRendition
+	TranscriptInsights  = v1.TranscriptInsights
+	InsightsQuestion    = v1.InsightsQuestion
+	InsightsTerm        = v1.InsightsTerm
+	InsightsHighlight   = v1.InsightsHighlight
+
 	WatermarkConfig         = v1.WatermarkConfig
 	WatermarkPixelPlacement = v1.WatermarkPixelPlacement
 
@@ -283,6 +298,8 @@ type (
 	VideoUpdateParams            = v1.UpdateVideoRequest
 	VideoGetStatsParams          = v1.GetStatsRequest
 	VideoListTopVideosParams     = v1.ListTopVideosRequest
+	VideoGetSeoMarkupParams      = v1.GetSeoMarkupRequest
+	VideoSeoMarkup               = v1.GetSeoMarkupResponse
 	PresetCreateParams           = v1.CreatePresetRequest
 	PresetUpdateParams           = v1.UpdatePresetRequest
 	PresetListParams             = v1.ListPresetsRequest
@@ -380,6 +397,10 @@ type (
 
 	SubtitleOperation = v1.SubtitleOperation
 	SubtitleFormat    = v1.SubtitleFormat
+
+	TranscriptStyle  = v1.TranscriptStyle
+	TranscriptFormat = v1.TranscriptFormat
+	InsightsStatus   = v1.InsightsStatus
 
 	WatermarkAnchor = v1.WatermarkAnchor
 
@@ -601,6 +622,30 @@ const (
 	SubtitleFormatWebVTT = v1.SubtitleFormat_SUBTITLE_FORMAT_WEBVTT
 	SubtitleFormatTTML   = v1.SubtitleFormat_SUBTITLE_FORMAT_TTML
 	SubtitleFormatASS    = v1.SubtitleFormat_SUBTITLE_FORMAT_ASS
+)
+
+// TranscriptStyle values. Clean (the default) removes fillers, stutters and
+// immediate repetitions without changing any word; literal is true verbatim.
+const (
+	TranscriptStyleUnspecified = v1.TranscriptStyle_TRANSCRIPT_STYLE_UNSPECIFIED
+	TranscriptStyleClean       = v1.TranscriptStyle_TRANSCRIPT_STYLE_CLEAN
+	TranscriptStyleLiteral     = v1.TranscriptStyle_TRANSCRIPT_STYLE_LITERAL
+)
+
+// TranscriptFormat values — the rendition formats a generate track produces.
+const (
+	TranscriptFormatUnspecified = v1.TranscriptFormat_TRANSCRIPT_FORMAT_UNSPECIFIED
+	TranscriptFormatJSON        = v1.TranscriptFormat_TRANSCRIPT_FORMAT_JSON
+	TranscriptFormatTXT         = v1.TranscriptFormat_TRANSCRIPT_FORMAT_TXT
+	TranscriptFormatMD          = v1.TranscriptFormat_TRANSCRIPT_FORMAT_MD
+)
+
+// InsightsStatus values.
+const (
+	InsightsStatusUnspecified = v1.InsightsStatus_INSIGHTS_STATUS_UNSPECIFIED
+	InsightsStatusPending     = v1.InsightsStatus_INSIGHTS_STATUS_PENDING
+	InsightsStatusReady       = v1.InsightsStatus_INSIGHTS_STATUS_READY
+	InsightsStatusFailed      = v1.InsightsStatus_INSIGHTS_STATUS_FAILED
 )
 
 // WatermarkAnchor values. The relative-placement anchor region a watermark is

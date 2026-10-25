@@ -22,6 +22,14 @@ type fakeVideoClient struct {
 
 	gotTop *v1.ListTopVideosRequest
 	top    *v1.ListTopVideosResponse
+
+	gotSeo *v1.GetSeoMarkupRequest
+	seo    *v1.GetSeoMarkupResponse
+}
+
+func (f *fakeVideoClient) GetSeoMarkup(_ context.Context, req *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error) {
+	f.gotSeo = req.Msg
+	return connect.NewResponse(f.seo), nil
 }
 
 func (f *fakeVideoClient) GetStats(_ context.Context, req *connect.Request[v1.GetStatsRequest]) (*connect.Response[v1.GetStatsResponse], error) {
@@ -144,5 +152,45 @@ func TestVideos_Analytics_NilParams(t *testing.T) {
 	}
 	if fake.gotTop == nil {
 		t.Error("ListTopVideos(nil) did not forward a request")
+	}
+}
+
+func TestVideos_GetSeoMarkup_RequestAndPassthrough(t *testing.T) {
+	fake := &fakeVideoClient{
+		seo: &v1.GetSeoMarkupResponse{
+			JsonLd:       `{"@type":"VideoObject"}`,
+			SitemapEntry: "<url><loc>https://example.com/watch/42</loc></url>",
+			HtmlFragment: `<section class="tx-insights"></section>`,
+		},
+	}
+	v := newVideos(fake, fake, &config{})
+
+	resp, err := v.GetSeoMarkup(context.Background(), &VideoGetSeoMarkupParams{
+		VideoId:       "vid_abc",
+		WatchUrl:      "https://example.com/watch/42",
+		DeepLinkParam: strptr("start"),
+		Language:      strptr("eng"),
+	})
+	if err != nil {
+		t.Fatalf("GetSeoMarkup() error = %v", err)
+	}
+	if fake.gotSeo.GetVideoId() != "vid_abc" || fake.gotSeo.GetWatchUrl() != "https://example.com/watch/42" {
+		t.Errorf("request = %q/%q, want vid_abc/https://example.com/watch/42",
+			fake.gotSeo.GetVideoId(), fake.gotSeo.GetWatchUrl())
+	}
+	if fake.gotSeo.GetDeepLinkParam() != "start" || fake.gotSeo.GetLanguage() != "eng" {
+		t.Errorf("optional fields = %q/%q, want start/eng",
+			fake.gotSeo.GetDeepLinkParam(), fake.gotSeo.GetLanguage())
+	}
+	if resp.GetJsonLd() != `{"@type":"VideoObject"}` ||
+		resp.GetSitemapEntry() == "" || resp.GetHtmlFragment() == "" {
+		t.Errorf("response not passed through: %+v", resp)
+	}
+
+	if _, err := v.GetSeoMarkup(context.Background(), nil); err != nil {
+		t.Fatalf("GetSeoMarkup(nil) error = %v", err)
+	}
+	if fake.gotSeo == nil {
+		t.Error("GetSeoMarkup(nil) did not forward a request")
 	}
 }

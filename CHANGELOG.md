@@ -4,6 +4,13 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.12](https://github.com/transcodely/transcodely-go/compare/v0.3.11...v0.3.12) (2026-10-25)
+
+
+### Features
+
+* auto_insights upload option (api 5.25.0) ([#60](https://github.com/transcodely/transcodely-go/issues/60)) ([174eace](https://github.com/transcodely/transcodely-go/commit/174eace4d3847779bb47d0bf77eb55b02cdb3f8d))
+
 ## [0.3.11](https://github.com/transcodely/transcodely-go/compare/v0.3.10...v0.3.11) (2026-10-25)
 
 

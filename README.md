@@ -175,6 +175,11 @@ track := &transcodely.SubtitleTrack{
 }
 ```
 
+For a hosted upload or URL ingest, set `AutoCaptions` and `AutoInsights` on
+`UploadCreateParams`, `MultipartCreateParams` or `VideoCreateFromUrlParams`
+instead (`AutoInsights` requires `AutoCaptions`; EUR 0.02 per video + EUR 0.005
+per source minute on top of captions).
+
 On a hosted video each rendition carries a short-lived `signed_url`, re-issued
 on every read, so fetch the video right before downloading:
 

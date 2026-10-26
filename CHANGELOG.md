@@ -4,6 +4,13 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.13](https://github.com/transcodely/transcodely-go/compare/v0.3.12...v0.3.13) (2026-10-26)
+
+
+### Features
+
+* generate_insights from existing captions (api 5.26.0) ([#62](https://github.com/transcodely/transcodely-go/issues/62)) ([e92d8b8](https://github.com/transcodely/transcodely-go/commit/e92d8b869e0dff4378d3debbc3e730d2050327a2))
+
 ## [0.3.12](https://github.com/transcodely/transcodely-go/compare/v0.3.11...v0.3.12) (2026-10-25)
 
 

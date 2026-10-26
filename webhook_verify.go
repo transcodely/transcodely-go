@@ -33,7 +33,7 @@ const DefaultWebhookTolerance = 5 * time.Minute
 // a plain string; the typed constants below cover the catalog the API emits.
 type EventType string
 
-// The 20 event types the platform emits. Mirrors the API's
+// The 22 event types the platform emits. Mirrors the API's
 // domain.WebhookEventTypes(). The "*" wildcard is a subscription value only and
 // is intentionally absent — it is never the type of a delivered event. Event.Type
 // is a plain string so an older SDK still decodes a type the API adds later.
@@ -63,10 +63,18 @@ const (
 	// delete_source_after_days lifecycle rule, at least 72 hours before the
 	// deletion. Renditions and playback are never affected.
 	EventTypeVideoSourceScheduledForDeletion EventType = "video.source_scheduled_for_deletion"
-	EventTypeAppCreated                      EventType = "app.created"
-	EventTypeAppUpdated                      EventType = "app.updated"
-	EventTypeAppSpendLimitWarning            EventType = "app.spend_limit_warning"
-	EventTypeAppSpendLimitExceeded           EventType = "app.spend_limit_exceeded"
+	// EventTypeVideoInsightsReady fires when insights requested with
+	// Videos.GenerateInsights become ready. The payload is the
+	// TranscriptInsights entry, not a Video: use [WebhookEvent.Insights].
+	EventTypeVideoInsightsReady EventType = "video.insights.ready"
+	// EventTypeVideoInsightsFailed fires when insights requested with
+	// Videos.GenerateInsights fail (ErrorCode says why); nothing is charged.
+	// The payload is the TranscriptInsights entry: use [WebhookEvent.Insights].
+	EventTypeVideoInsightsFailed   EventType = "video.insights.failed"
+	EventTypeAppCreated            EventType = "app.created"
+	EventTypeAppUpdated            EventType = "app.updated"
+	EventTypeAppSpendLimitWarning  EventType = "app.spend_limit_warning"
+	EventTypeAppSpendLimitExceeded EventType = "app.spend_limit_exceeded"
 )
 
 // WebhookEventTypes is the full catalog of emittable event types (excludes the
@@ -88,6 +96,8 @@ var WebhookEventTypes = []EventType{
 	EventTypeVideoFailed,
 	EventTypeVideoDeleted,
 	EventTypeVideoSourceScheduledForDeletion,
+	EventTypeVideoInsightsReady,
+	EventTypeVideoInsightsFailed,
 	EventTypeAppCreated,
 	EventTypeAppUpdated,
 	EventTypeAppSpendLimitWarning,
@@ -237,10 +247,22 @@ func (e *WebhookEvent) JobOutput() (*JobOutput, bool) {
 	return o, ok
 }
 
-// Video returns the decoded Video and true for video.* events, else (nil, false).
+// Video returns the decoded Video and true for video.* events, else (nil,
+// false). The video.insights.ready and video.insights.failed events carry a
+// TranscriptInsights entry rather than a Video snapshot: use
+// [WebhookEvent.Insights] for those.
 func (e *WebhookEvent) Video() (*Video, bool) {
 	v, ok := e.data.(*Video)
 	return v, ok
+}
+
+// Insights returns the decoded TranscriptInsights entry and true for the
+// video.insights.ready and video.insights.failed events, else (nil, false).
+// The job.insights.* events carry a Job snapshot instead: use
+// [WebhookEvent.Job] and Job.Insights for those.
+func (e *WebhookEvent) Insights() (*TranscriptInsights, bool) {
+	i, ok := e.data.(*TranscriptInsights)
+	return i, ok
 }
 
 // App returns the decoded App and true for app.created / app.updated events,
@@ -296,8 +318,8 @@ func (e *WebhookEvent) SpendLimit() (*SpendLimitNotification, bool) {
 	return &n, true
 }
 
-// Data returns the decoded resource snapshot (a *Job, *JobOutput, *Video, or
-// *App), or nil for an unrecognized event type. Use [WebhookEvent.RawData] to
+// Data returns the decoded resource snapshot (a *Job, *JobOutput, *Video,
+// *TranscriptInsights, or *App), or nil for an unrecognized event type. Use [WebhookEvent.RawData] to
 // inspect an unknown type's payload.
 func (e *WebhookEvent) Data() proto.Message { return e.data }
 
@@ -322,11 +344,15 @@ func (e *WebhookEvent) decodeData() {
 // resourceForEventType returns a fresh resource message for the event type's
 // prefix, or nil if the type is unrecognized. The spend-limit events share the
 // "app." prefix but carry a notification payload, not an App snapshot, so they
-// return nil here (they are decoded via [WebhookEvent.SpendLimit]).
+// return nil here (they are decoded via [WebhookEvent.SpendLimit]). The
+// video.insights.* events share the "video." prefix but carry a
+// TranscriptInsights entry, not a Video snapshot.
 func resourceForEventType(t string) proto.Message {
 	switch t {
 	case string(EventTypeAppSpendLimitWarning), string(EventTypeAppSpendLimitExceeded):
 		return nil
+	case string(EventTypeVideoInsightsReady), string(EventTypeVideoInsightsFailed):
+		return &v1.TranscriptInsights{}
 	}
 	switch {
 	case strings.HasPrefix(t, "output."):

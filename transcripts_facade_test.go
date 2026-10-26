@@ -75,6 +75,27 @@ func TestTranscriptFacadeEnumConstants(t *testing.T) {
 		}
 	}
 
+	sources := []struct {
+		got  InsightsSource
+		want v1.InsightsSource
+		wire string
+	}{
+		{InsightsSourceJob, v1.InsightsSource_INSIGHTS_SOURCE_JOB, "job"},
+		{InsightsSourceVideo, v1.InsightsSource_INSIGHTS_SOURCE_VIDEO, "video"},
+	}
+	for _, s := range sources {
+		if s.got != s.want {
+			t.Errorf("source constant = %v, want %v", s.got, s.want)
+		}
+		if out := marshal(t, &TranscriptInsights{Source: s.got}); !strings.Contains(out, `"source":"`+s.wire+`"`) {
+			t.Errorf("source %v marshals as %s, want %q", s.got, out, s.wire)
+		}
+	}
+
+	if InsightsSourceUnspecified != v1.InsightsSource_INSIGHTS_SOURCE_UNSPECIFIED {
+		t.Error("InsightsSourceUnspecified is not bound to its zero value")
+	}
+
 	if TranscriptStyleUnspecified != v1.TranscriptStyle_TRANSCRIPT_STYLE_UNSPECIFIED ||
 		TranscriptFormatUnspecified != v1.TranscriptFormat_TRANSCRIPT_FORMAT_UNSPECIFIED ||
 		InsightsStatusUnspecified != v1.InsightsStatus_INSIGHTS_STATUS_UNSPECIFIED {

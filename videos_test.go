@@ -25,6 +25,14 @@ type fakeVideoClient struct {
 
 	gotSeo *v1.GetSeoMarkupRequest
 	seo    *v1.GetSeoMarkupResponse
+
+	gotInsights *v1.GenerateInsightsRequest
+	insights    *v1.GenerateInsightsResponse
+}
+
+func (f *fakeVideoClient) GenerateInsights(_ context.Context, req *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error) {
+	f.gotInsights = req.Msg
+	return connect.NewResponse(f.insights), nil
 }
 
 func (f *fakeVideoClient) GetSeoMarkup(_ context.Context, req *connect.Request[v1.GetSeoMarkupRequest]) (*connect.Response[v1.GetSeoMarkupResponse], error) {
@@ -192,5 +200,45 @@ func TestVideos_GetSeoMarkup_RequestAndPassthrough(t *testing.T) {
 	}
 	if fake.gotSeo == nil {
 		t.Error("GetSeoMarkup(nil) did not forward a request")
+	}
+}
+
+func TestVideos_GenerateInsights_RequestAndUnwrap(t *testing.T) {
+	fake := &fakeVideoClient{
+		insights: &v1.GenerateInsightsResponse{
+			Insights: &v1.TranscriptInsights{
+				Id:       "ins_abc123",
+				Source:   v1.InsightsSource_INSIGHTS_SOURCE_VIDEO,
+				VideoId:  "vid_abc",
+				Language: "eng",
+				Status:   v1.InsightsStatus_INSIGHTS_STATUS_PENDING,
+			},
+		},
+	}
+	v := newVideos(fake, fake, &config{})
+
+	ins, err := v.GenerateInsights(context.Background(), &VideoGenerateInsightsParams{
+		Id:       "vid_abc",
+		Language: strptr("eng"),
+		Hint:     strptr("A cooking show for beginners"),
+	})
+	if err != nil {
+		t.Fatalf("GenerateInsights() error = %v", err)
+	}
+	if fake.gotInsights.GetId() != "vid_abc" || fake.gotInsights.GetLanguage() != "eng" ||
+		fake.gotInsights.GetHint() != "A cooking show for beginners" || fake.gotInsights.AppId != nil {
+		t.Errorf("forwarded request = %+v", fake.gotInsights)
+	}
+	if ins.GetId() != "ins_abc123" || ins.GetSource() != InsightsSourceVideo ||
+		ins.GetVideoId() != "vid_abc" || ins.GetStatus() != InsightsStatusPending {
+		t.Errorf("GenerateInsights() = %+v, want the response's insights entry", ins)
+	}
+
+	fake.gotInsights = nil
+	if _, err := v.GenerateInsights(context.Background(), nil); err != nil {
+		t.Fatalf("GenerateInsights(nil) error = %v", err)
+	}
+	if fake.gotInsights == nil {
+		t.Error("GenerateInsights(nil) did not forward a request")
 	}
 }

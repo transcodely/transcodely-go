@@ -165,8 +165,8 @@ func (a *Apps) GetSpend(ctx context.Context, id string) (*AppSpend, error) {
 // GetPricing returns the prices an app pays: every chargeable item with its
 // effective EUR rate, whether the account has a custom rate for it, and the
 // public list price. Pass an empty id to price the API key's own app (or, for
-// dashboard callers, the organization's first app). Prices are fixed when work
-// is quoted, so a price change applies to jobs created after it.
+// dashboard callers, the organization's first active app). Prices are fixed when
+// work is quoted, so a price change applies to jobs created after it.
 func (a *Apps) GetPricing(ctx context.Context, id string) (*AppPricing, error) {
 	req := &v1.GetPricingRequest{}
 	if id != "" {

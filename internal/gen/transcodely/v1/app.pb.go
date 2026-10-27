@@ -1670,7 +1670,8 @@ type GetPricingRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// App ID. API-key callers may omit it or pass their own app; a different app
 	// is rejected with PermissionDenied. Dashboard callers pass it to pick an app
-	// in their organization; omitted selects the organization's first app.
+	// in their organization; omitted selects the organization's first active
+	// app in list order (the same default every app-scoped read uses).
 	AppId         *string `protobuf:"bytes,1,opt,name=app_id,json=appId,proto3,oneof" json:"app_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1731,8 +1732,9 @@ type PricingEntry struct {
 	// Human label of the class, e.g. "Encoding".
 	GroupLabel string `protobuf:"bytes,4,opt,name=group_label,json=groupLabel,proto3" json:"group_label,omitempty"`
 	// What base_price is per: eur_per_output_minute, eur_per_source_minute,
-	// eur_per_video, eur_per_job, eur_per_gb_month, eur_per_gb. Empty for a
-	// charge that has only a multiplier.
+	// eur_per_video, eur_per_job, eur_per_gb_month, eur_per_gb, or eur_per_unit
+	// for a charge whose unit is not known yet. Empty for a charge that has only
+	// a multiplier.
 	Unit string `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
 	// The price per unit, in EUR, this app pays. Absent for a charge that has
 	// only a multiplier.

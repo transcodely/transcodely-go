@@ -440,6 +440,30 @@ Before wiring the provider up, dry-run a key against the rule with
 `client.IngestRules.Test(...)`: it reports whether the filters match and, when
 they do, the exact job request the rule would submit. Nothing is stored.
 
+## Your prices
+
+`Apps.GetPricing` lists every chargeable item with the EUR rate your app pays,
+whether your account has a custom rate for it, and the public list price.
+Pass `""` to price the API key's own app.
+
+```go
+pricing, err := client.Apps.GetPricing(ctx, "")
+if err != nil {
+	log.Fatal(err)
+}
+for _, e := range pricing.Entries {
+	if e.BasePrice != nil {
+		fmt.Printf("%s / %s: %.6f %s (%s) custom=%v\n", e.GroupLabel, e.Label, e.GetBasePrice(), pricing.Currency, e.Unit, e.Custom)
+	}
+	if e.Multiplier != nil {
+		fmt.Printf("%s / %s: x%.4f custom=%v\n", e.GroupLabel, e.Label, e.GetMultiplier(), e.Custom)
+	}
+}
+```
+
+Prices are fixed when a job is created, so a price change applies to jobs
+created after it.
+
 ## Configuration
 
 | Option | Default | Notes |

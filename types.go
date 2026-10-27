@@ -131,6 +131,12 @@ type (
 	AutoProfileDefaults = v1.AutoProfileDefaults
 	AppSpend            = v1.GetSpendResponse
 
+	// AppPricing is the price list an app pays (client.Apps.GetPricing): every
+	// chargeable item with its effective rate, whether the account has a custom
+	// rate for it, and the public list price. PricingEntry is one item.
+	AppPricing   = v1.GetPricingResponse
+	PricingEntry = v1.PricingEntry
+
 	// PlayerConfig configures the hosted player and embeds for every video in
 	// an app; CaptionStyle is its caption-rendering half (background color and
 	// opacity, text color, text-size multiplier). Update via
@@ -317,6 +323,7 @@ type (
 	AppUpdateSpendLimitParams    = v1.UpdateSpendLimitRequest
 	AppUpdateSpendLimitResponse  = v1.UpdateSpendLimitResponse
 	AppGetSpendParams            = v1.GetSpendRequest
+	AppGetPricingParams          = v1.GetPricingRequest
 	APIKeyCreateParams           = v1.CreateAPIKeyRequest
 	APIKeyListParams             = v1.ListAPIKeysRequest
 	OrgCreateParams              = v1.CreateOrganizationRequest

@@ -59,6 +59,8 @@ const (
 	AppServiceUpdateSpendLimitProcedure = "/transcodely.v1.AppService/UpdateSpendLimit"
 	// AppServiceGetSpendProcedure is the fully-qualified name of the AppService's GetSpend RPC.
 	AppServiceGetSpendProcedure = "/transcodely.v1.AppService/GetSpend"
+	// AppServiceGetPricingProcedure is the fully-qualified name of the AppService's GetPricing RPC.
+	AppServiceGetPricingProcedure = "/transcodely.v1.AppService/GetPricing"
 )
 
 // AppServiceClient is a client for the transcodely.v1.AppService service.
@@ -93,6 +95,9 @@ type AppServiceClient interface {
 	UpdateSpendLimit(context.Context, *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error)
 	// Get an app's current-period transcoding spend against its limit.
 	GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error)
+	// Get the prices an app pays: every chargeable item with its effective rate,
+	// whether the account has a custom rate for it, and the public list price.
+	GetPricing(context.Context, *connect.Request[v1.GetPricingRequest]) (*connect.Response[v1.GetPricingResponse], error)
 }
 
 // NewAppServiceClient constructs a client for the transcodely.v1.AppService service. By default, it
@@ -166,6 +171,12 @@ func NewAppServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(appServiceMethods.ByName("GetSpend")),
 			connect.WithClientOptions(opts...),
 		),
+		getPricing: connect.NewClient[v1.GetPricingRequest, v1.GetPricingResponse](
+			httpClient,
+			baseURL+AppServiceGetPricingProcedure,
+			connect.WithSchema(appServiceMethods.ByName("GetPricing")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -181,6 +192,7 @@ type appServiceClient struct {
 	updatePlayerConfig  *connect.Client[v1.UpdatePlayerConfigRequest, v1.UpdatePlayerConfigResponse]
 	updateSpendLimit    *connect.Client[v1.UpdateSpendLimitRequest, v1.UpdateSpendLimitResponse]
 	getSpend            *connect.Client[v1.GetSpendRequest, v1.GetSpendResponse]
+	getPricing          *connect.Client[v1.GetPricingRequest, v1.GetPricingResponse]
 }
 
 // Create calls transcodely.v1.AppService.Create.
@@ -233,6 +245,11 @@ func (c *appServiceClient) GetSpend(ctx context.Context, req *connect.Request[v1
 	return c.getSpend.CallUnary(ctx, req)
 }
 
+// GetPricing calls transcodely.v1.AppService.GetPricing.
+func (c *appServiceClient) GetPricing(ctx context.Context, req *connect.Request[v1.GetPricingRequest]) (*connect.Response[v1.GetPricingResponse], error) {
+	return c.getPricing.CallUnary(ctx, req)
+}
+
 // AppServiceHandler is an implementation of the transcodely.v1.AppService service.
 type AppServiceHandler interface {
 	// Create a new app within an organization.
@@ -265,6 +282,9 @@ type AppServiceHandler interface {
 	UpdateSpendLimit(context.Context, *connect.Request[v1.UpdateSpendLimitRequest]) (*connect.Response[v1.UpdateSpendLimitResponse], error)
 	// Get an app's current-period transcoding spend against its limit.
 	GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error)
+	// Get the prices an app pays: every chargeable item with its effective rate,
+	// whether the account has a custom rate for it, and the public list price.
+	GetPricing(context.Context, *connect.Request[v1.GetPricingRequest]) (*connect.Response[v1.GetPricingResponse], error)
 }
 
 // NewAppServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -334,6 +354,12 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(appServiceMethods.ByName("GetSpend")),
 		connect.WithHandlerOptions(opts...),
 	)
+	appServiceGetPricingHandler := connect.NewUnaryHandler(
+		AppServiceGetPricingProcedure,
+		svc.GetPricing,
+		connect.WithSchema(appServiceMethods.ByName("GetPricing")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.AppService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AppServiceCreateProcedure:
@@ -356,6 +382,8 @@ func NewAppServiceHandler(svc AppServiceHandler, opts ...connect.HandlerOption) 
 			appServiceUpdateSpendLimitHandler.ServeHTTP(w, r)
 		case AppServiceGetSpendProcedure:
 			appServiceGetSpendHandler.ServeHTTP(w, r)
+		case AppServiceGetPricingProcedure:
+			appServiceGetPricingHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -403,4 +431,8 @@ func (UnimplementedAppServiceHandler) UpdateSpendLimit(context.Context, *connect
 
 func (UnimplementedAppServiceHandler) GetSpend(context.Context, *connect.Request[v1.GetSpendRequest]) (*connect.Response[v1.GetSpendResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.AppService.GetSpend is not implemented"))
+}
+
+func (UnimplementedAppServiceHandler) GetPricing(context.Context, *connect.Request[v1.GetPricingRequest]) (*connect.Response[v1.GetPricingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.AppService.GetPricing is not implemented"))
 }

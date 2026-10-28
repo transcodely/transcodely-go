@@ -35,9 +35,13 @@ const (
 	HDRFormat_HDR_FORMAT_HDR10_PLUS HDRFormat = 2
 	// Hybrid Log-Gamma (backwards-compatible with SDR).
 	HDRFormat_HDR_FORMAT_HLG HDRFormat = 3
-	// Dolby Vision Profile 5 (single-layer, cross-compatible).
+	// Dolby Vision Profile 5 (single-layer, no HDR10 or SDR compatibility
+	// layer). Not available: refused at create with `parameter_unsupported` on
+	// `hdr.format` until the worker produces Dolby Vision output.
 	HDRFormat_HDR_FORMAT_DOLBY_VISION_5 HDRFormat = 4
-	// Dolby Vision Profile 8 (MEL, backward-compatible with HDR10).
+	// Dolby Vision Profile 8.1 (single-layer, HDR10-compatible base layer). Not
+	// available: refused at create with `parameter_unsupported` on `hdr.format`
+	// until the worker produces Dolby Vision output.
 	HDRFormat_HDR_FORMAT_DOLBY_VISION_8 HDRFormat = 5
 )
 
@@ -212,6 +216,9 @@ func (ToneMapping) EnumDescriptor() ([]byte, []int) {
 type HDRConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Target HDR format (required for passthrough and force modes).
+	// `dolby_vision_5` and `dolby_vision_8` are refused at create until the
+	// worker produces Dolby Vision output; a refused request creates no job and
+	// is neither quoted nor billed.
 	Format HDRFormat `protobuf:"varint,1,opt,name=format,proto3,enum=transcodely.v1.HDRFormat" json:"format,omitempty"`
 	// Processing mode (required).
 	Mode HDRMode `protobuf:"varint,2,opt,name=mode,proto3,enum=transcodely.v1.HDRMode" json:"mode,omitempty"`
@@ -226,7 +233,9 @@ type HDRConfig struct {
 	// Content Light Level metadata (MaxCLL, MaxFALL).
 	// Format: "MaxCLL,MaxFALL" (e.g., "1000,400").
 	ContentLightLevel *string `protobuf:"bytes,6,opt,name=content_light_level,json=contentLightLevel,proto3,oneof" json:"content_light_level,omitempty"`
-	// Dolby Vision RPU file URL (for DV metadata injection).
+	// Dolby Vision RPU file URL. Only accepted with a `dolby_vision_*` format,
+	// which is refused at create until the worker produces Dolby Vision output,
+	// so this field is currently unreachable.
 	RpuUrl        *string `protobuf:"bytes,7,opt,name=rpu_url,json=rpuUrl,proto3,oneof" json:"rpu_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

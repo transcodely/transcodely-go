@@ -844,6 +844,8 @@ type OutputSpec struct {
 	// and resolution ratio, preventing output from exceeding the input's quality ceiling.
 	// "auto" also skips any ABR rung larger than the source instead of upscaling it.
 	// A skipped rung is reported with status "skipped" and is not billed.
+	// Outputs created since 2026-10-27 echo the resolved mode on responses (unset
+	// resolves to "fixed"). Outputs created before then omit it: their mode was not stored.
 	EncodingMode *string `protobuf:"bytes,14,opt,name=encoding_mode,json=encodingMode,proto3,oneof" json:"encoding_mode,omitempty"`
 	// Resolved path template after composing job-level + per-output (additive),
 	// falling back through origin → default as needed, and applying any

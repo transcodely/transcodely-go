@@ -842,6 +842,10 @@ type OutputSpec struct {
 	// Encoding mode: "fixed" (default, static CRF) or "auto" (input-aware constrained CRF).
 	// In "auto" mode, the worker caps each variant's bitrate based on the input's bitrate
 	// and resolution ratio, preventing output from exceeding the input's quality ceiling.
+	// "auto" also skips any ABR rung larger than the source instead of upscaling it.
+	// A skipped rung is reported with status "skipped" and is not billed.
+	// Outputs created since 2026-10-27 echo the resolved mode on responses (unset
+	// resolves to "fixed"). Outputs created before then omit it: their mode was not stored.
 	EncodingMode *string `protobuf:"bytes,14,opt,name=encoding_mode,json=encodingMode,proto3,oneof" json:"encoding_mode,omitempty"`
 	// Resolved path template after composing job-level + per-output (additive),
 	// falling back through origin → default as needed, and applying any
@@ -1164,7 +1168,10 @@ type VariantPricingSnapshot struct {
 	EstimatedCost *float64 `protobuf:"fixed64,18,opt,name=estimated_cost,json=estimatedCost,proto3,oneof" json:"estimated_cost,omitempty"`
 	// Actual cost calculated at output completion.
 	ActualCost *float64 `protobuf:"fixed64,19,opt,name=actual_cost,json=actualCost,proto3,oneof" json:"actual_cost,omitempty"`
-	// Variant encoding status: "pending", "processing", "completed", "failed".
+	// Variant encoding status: "pending", "processing", "completed", "failed",
+	// "canceled", or "skipped". A rung is "skipped" when `encoding_mode: auto`
+	// left it unencoded because it would have upscaled the source. A skipped
+	// rung has actual_cost 0 and is not billed.
 	Status string `protobuf:"bytes,20,opt,name=status,proto3" json:"status,omitempty"`
 	// Variant encoding progress (0-100).
 	Progress int32 `protobuf:"varint,21,opt,name=progress,proto3" json:"progress,omitempty"`

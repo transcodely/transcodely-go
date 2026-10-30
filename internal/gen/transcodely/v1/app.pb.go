@@ -1234,9 +1234,10 @@ type AutoProfileDefaults struct {
 	MaxResolution *string `protobuf:"bytes,3,opt,name=max_resolution,json=maxResolution,proto3,oneof" json:"max_resolution,omitempty"`
 	// Quality tier: "economy", "standard", or "premium".
 	QualityTier *string `protobuf:"bytes,4,opt,name=quality_tier,json=qualityTier,proto3,oneof" json:"quality_tier,omitempty"`
-	// Encoding mode: "fixed" (default, static CRF) or "auto" (input-aware constrained CRF).
+	// Encoding mode: "auto" (default, input-aware constrained CRF) or "fixed" (static CRF).
 	// In "auto" mode, the worker caps each variant's bitrate based on the input's bitrate
-	// and resolution ratio, preventing output from exceeding the input's quality ceiling.
+	// and resolution ratio, preventing output from exceeding the input's quality ceiling,
+	// and skips any ladder rung larger than the source instead of upscaling it.
 	EncodingMode  *string `protobuf:"bytes,5,opt,name=encoding_mode,json=encodingMode,proto3,oneof" json:"encoding_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

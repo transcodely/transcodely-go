@@ -4,6 +4,13 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.15](https://github.com/transcodely/transcodely-go/compare/v0.3.14...v0.3.15) (2026-10-30)
+
+
+### Features
+
+* resync protos to api master — usage hosting_estimated_from, encoding_mode echo ([270f811](https://github.com/transcodely/transcodely-go/commit/270f811b27f21f54cf48c30ae5c9372cf6813955))
+
 ## [0.3.14](https://github.com/transcodely/transcodely-go/compare/v0.3.13...v0.3.14) (2026-10-27)
 
 

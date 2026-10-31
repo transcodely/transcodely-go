@@ -2854,7 +2854,11 @@ type Job struct {
 	ErrorMessage *string `protobuf:"bytes,11,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
 	// URL to receive webhook notifications.
 	WebhookUrl *string `protobuf:"bytes,12,opt,name=webhook_url,json=webhookUrl,proto3,oneof" json:"webhook_url,omitempty"`
-	// User-provided metadata (key-value pairs).
+	// User-provided metadata (key-value pairs). Keys starting with
+	// `transcodely_` are the platform's own: they appear on jobs Transcodely
+	// creates for you (for example `transcodely_kind: video_highlight` on a
+	// highlight clip job, with `transcodely_highlight_id` and
+	// `transcodely_video_id`).
 	Metadata map[string]string `protobuf:"bytes,13,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// When the job was created.
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -3762,7 +3766,10 @@ type CreateJobRequest struct {
 	// Optional idempotency key.
 	// If provided, duplicate requests with the same key return the existing job.
 	IdempotencyKey *string `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	// User-provided metadata (key-value pairs, max 20 entries).
+	// User-provided metadata (key-value pairs, max 20 entries). Keys starting
+	// with `transcodely_` are reserved for the platform and refused with
+	// `invalid_argument`, error code `parameter_invalid` on
+	// `metadata.<key>`.
 	Metadata map[string]string `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// If true, job will pause after probing in AWAITING_CONFIRMATION status.
 	// Customer can review the estimated cost and call ConfirmJob to proceed.

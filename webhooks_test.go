@@ -25,8 +25,8 @@ func TestNew_WiresWebhookNamespaces(t *testing.T) {
 }
 
 func TestWebhookEventCatalog(t *testing.T) {
-	if len(WebhookEventTypes) != 22 {
-		t.Fatalf("WebhookEventTypes has %d entries, want 22", len(WebhookEventTypes))
+	if len(WebhookEventTypes) != 24 {
+		t.Fatalf("WebhookEventTypes has %d entries, want 24", len(WebhookEventTypes))
 	}
 	for _, et := range WebhookEventTypes {
 		if et == "job.updated" {
@@ -61,7 +61,16 @@ func TestWebhookEventCatalog(t *testing.T) {
 	if EventTypeVideoInsightsFailed != "video.insights.failed" {
 		t.Errorf("EventTypeVideoInsightsFailed = %q", EventTypeVideoInsightsFailed)
 	}
-	for _, want := range []EventType{EventTypeVideoInsightsReady, EventTypeVideoInsightsFailed} {
+	if EventTypeVideoHighlightsReady != "video.highlights.ready" {
+		t.Errorf("EventTypeVideoHighlightsReady = %q", EventTypeVideoHighlightsReady)
+	}
+	if EventTypeVideoHighlightsFailed != "video.highlights.failed" {
+		t.Errorf("EventTypeVideoHighlightsFailed = %q", EventTypeVideoHighlightsFailed)
+	}
+	for _, want := range []EventType{
+		EventTypeVideoInsightsReady, EventTypeVideoInsightsFailed,
+		EventTypeVideoHighlightsReady, EventTypeVideoHighlightsFailed,
+	} {
 		found := false
 		for _, et := range WebhookEventTypes {
 			if et == want {
@@ -94,6 +103,9 @@ func TestResourceForEventType(t *testing.T) {
 		// TranscriptInsights entry, not a Video snapshot.
 		{"video.insights.ready", "*TranscriptInsights"},
 		{"video.insights.failed", "*TranscriptInsights"},
+		// video.highlights.* carry the Video snapshot, with Highlights.
+		{"video.highlights.ready", "*Video"},
+		{"video.highlights.failed", "*Video"},
 		{"app.updated", "*App"},
 		// Spend-limit events share the "app." prefix but are notification
 		// payloads, not App snapshots — they must NOT decode to *App.

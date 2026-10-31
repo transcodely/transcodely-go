@@ -70,7 +70,16 @@ const (
 	// EventTypeVideoInsightsFailed fires when insights requested with
 	// Videos.GenerateInsights fail (ErrorCode says why); nothing is charged.
 	// The payload is the TranscriptInsights entry: use [WebhookEvent.Insights].
-	EventTypeVideoInsightsFailed   EventType = "video.insights.failed"
+	EventTypeVideoInsightsFailed EventType = "video.insights.failed"
+	// EventTypeVideoHighlightsReady fires once every highlight clip of a set
+	// (Videos.GenerateHighlights or the create-time Highlights option) has
+	// finished and at least one rendered. The payload is the Video, with
+	// Highlights (failed ones carry ErrorCode).
+	EventTypeVideoHighlightsReady EventType = "video.highlights.ready"
+	// EventTypeVideoHighlightsFailed fires when every highlight clip of a set
+	// finished and none rendered, or a create-time highlights request was
+	// refused. The payload is the Video, with Highlights.
+	EventTypeVideoHighlightsFailed EventType = "video.highlights.failed"
 	EventTypeAppCreated            EventType = "app.created"
 	EventTypeAppUpdated            EventType = "app.updated"
 	EventTypeAppSpendLimitWarning  EventType = "app.spend_limit_warning"
@@ -98,6 +107,8 @@ var WebhookEventTypes = []EventType{
 	EventTypeVideoSourceScheduledForDeletion,
 	EventTypeVideoInsightsReady,
 	EventTypeVideoInsightsFailed,
+	EventTypeVideoHighlightsReady,
+	EventTypeVideoHighlightsFailed,
 	EventTypeAppCreated,
 	EventTypeAppUpdated,
 	EventTypeAppSpendLimitWarning,

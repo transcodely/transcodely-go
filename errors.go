@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+
+	v1 "github.com/transcodely/transcodely-go/internal/gen/transcodely/v1"
 )
 
 // FieldViolation describes a single field-level validation failure.
@@ -24,7 +26,7 @@ type FieldViolation struct {
 // errors.As(err, &target) check is enough for typed handling.
 type Error interface {
 	error
-	// Code is the server-side machine-readable code (e.g. "JOB_NOT_FOUND").
+	// Code is the server-side machine-readable code (e.g. "validation_error").
 	ErrorCode() string
 	// RequestID is the `req_*` identifier the server returned in `X-Request-Id`,
 	// or the empty string if absent.
@@ -139,6 +141,12 @@ func fromConnectError(err error) error {
 		}
 	}
 
+	// The API sends its structured envelope as a transcodely.v1.ErrorDetails
+	// Connect detail: the error type (validation_error, codec_error,
+	// feature_error) or specific code, and per-field violations whose
+	// descriptions read "[<code>] <message>".
+	applyErrorDetails(&base, connectErr.Details())
+
 	if connectErr.Meta() != nil {
 		if rid := connectErr.Meta().Get("X-Request-Id"); rid != "" {
 			base.requestID = rid
@@ -174,6 +182,34 @@ func fromConnectError(err error) error {
 		return &APIConnectionError{baseError: base}
 	}
 	return &APIError{baseError: base}
+}
+
+// applyErrorDetails fills code and field violations from the first
+// transcodely.v1.ErrorDetails detail, without overriding values a JSON
+// message envelope already set.
+func applyErrorDetails(base *baseError, details []*connect.ErrorDetail) {
+	for _, d := range details {
+		msg, err := d.Value()
+		if err != nil {
+			continue
+		}
+		ed, ok := msg.(*v1.ErrorDetails)
+		if !ok {
+			continue
+		}
+		if base.code == "" {
+			base.code = ed.GetCode()
+		}
+		if len(base.errors) == 0 {
+			for _, fv := range ed.GetFieldViolations() {
+				base.errors = append(base.errors, FieldViolation{
+					Field:       fv.GetField(),
+					Description: fv.GetDescription(),
+				})
+			}
+		}
+		return
+	}
 }
 
 func parseErrorPayload(message string) *errorPayload {

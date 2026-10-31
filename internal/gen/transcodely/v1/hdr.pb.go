@@ -99,11 +99,14 @@ const (
 	HDRMode_HDR_MODE_UNSPECIFIED HDRMode = 0
 	// Preserve input HDR metadata.
 	HDRMode_HDR_MODE_PASSTHROUGH HDRMode = 1
-	// Convert HDR to SDR via tone mapping. Requires an HDR input: whether the
-	// input carries HDR color signaling is only knowable once it has been
-	// probed, so a tone-map job on an SDR source is accepted at create and then
-	// fails at probe time with error code `input_not_hdr`, before any encode
-	// starts.
+	// Convert HDR to SDR via tone mapping. The output is BT.709 (primaries,
+	// transfer and matrix), limited range, 8-bit unless the variant is h265
+	// `main10`, and carries no HDR metadata. Works into every video codec,
+	// because the output is SDR: `format` names the source here, not the output.
+	// Requires an HDR input: whether the input carries HDR color signaling is
+	// only knowable once it has been probed, so a tone-map job on an SDR source
+	// is accepted at create and then fails at probe time with error code
+	// `input_not_hdr`, before any encode starts.
 	HDRMode_HDR_MODE_TONEMAP HDRMode = 2
 	// Force a specific HDR format on output.
 	HDRMode_HDR_MODE_FORCE HDRMode = 3
@@ -161,7 +164,10 @@ const (
 	ToneMapping_TONE_MAPPING_REINHARD ToneMapping = 1
 	// Film-like response curve. Cinematic content.
 	ToneMapping_TONE_MAPPING_HABLE ToneMapping = 2
-	// ITU-R BT.2390 reference. Broadcast (default).
+	// ITU-R BT.2390 reference. Broadcast (default). Approximated with `hable`
+	// on CPU: the worker's tone-mapping filter has no BT.2390 curve, so this
+	// value is encoded with the `hable` operator, the closest available
+	// highlight roll-off.
 	ToneMapping_TONE_MAPPING_BT2390 ToneMapping = 3
 	// Smooth highlight rolloff. HDR10+ content.
 	ToneMapping_TONE_MAPPING_MOBIUS ToneMapping = 4
@@ -215,17 +221,21 @@ func (ToneMapping) EnumDescriptor() ([]byte, []int) {
 // HDR configuration for a video variant.
 type HDRConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Target HDR format (required for passthrough and force modes).
+	// Target HDR format (required for passthrough and force modes). In tonemap
+	// mode it names the HDR format of the source.
 	// `dolby_vision_5` and `dolby_vision_8` are refused at create until the
 	// worker produces Dolby Vision output; a refused request creates no job and
 	// is neither quoted nor billed.
 	Format HDRFormat `protobuf:"varint,1,opt,name=format,proto3,enum=transcodely.v1.HDRFormat" json:"format,omitempty"`
 	// Processing mode (required).
 	Mode HDRMode `protobuf:"varint,2,opt,name=mode,proto3,enum=transcodely.v1.HDRMode" json:"mode,omitempty"`
-	// Tone mapping algorithm (for tonemap mode).
+	// Tone mapping algorithm (tonemap mode only). Unset means `bt2390`, which,
+	// like an explicit `bt2390`, is approximated with `hable` on CPU.
 	ToneMapping ToneMapping `protobuf:"varint,3,opt,name=tone_mapping,json=toneMapping,proto3,enum=transcodely.v1.ToneMapping" json:"tone_mapping,omitempty"`
-	// Target peak brightness in nits (for tonemap and force modes).
-	// Range: 100-10000.
+	// Target peak brightness in nits. Range: 100-10000. Applies to HDR output
+	// only: refused with `parameter_forbidden` in tonemap mode, whose SDR target
+	// has a fixed peak. Accepted in passthrough and force modes, where the
+	// encoder does not currently read it, so it has no effect on the output.
 	TargetPeakNits *int32 `protobuf:"varint,4,opt,name=target_peak_nits,json=targetPeakNits,proto3,oneof" json:"target_peak_nits,omitempty"`
 	// Master Display Color Volume metadata (SMPTE ST 2086).
 	// Format: "G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)"

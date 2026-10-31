@@ -837,7 +837,9 @@ type OutputSpec struct {
 	// Enables per-title encoding, which tunes this output's CRF to the source
 	// rather than to its quality tier. Requires at least one video rendition that
 	// is not pinned to an explicit bitrate, and a source of at least 120 seconds.
-	// `auto_abr` mode is not accepted yet.
+	// `auto_abr` mode (choose which rungs of a standard ladder to render, for
+	// streaming outputs) is defined but not accepted yet: it is rejected with
+	// `parameter_unsupported`.
 	ContentAware *ContentAwareConfig `protobuf:"bytes,13,opt,name=content_aware,json=contentAware,proto3,oneof" json:"content_aware,omitempty"`
 	// Encoding mode: "fixed" (default, static CRF) or "auto" (input-aware constrained CRF).
 	// In "auto" mode, the worker caps each variant's bitrate based on the input's bitrate

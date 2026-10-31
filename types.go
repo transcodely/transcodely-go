@@ -268,6 +268,13 @@ type (
 	InsightsTerm        = v1.InsightsTerm
 	InsightsHighlight   = v1.InsightsHighlight
 
+	// HighlightsConfig chooses highlight clips from a hosted video's ready
+	// insights (on the create requests' Highlights field, or the Config of
+	// Videos.GenerateHighlights). VideoHighlight is one rendered clip, listed
+	// on Video.Highlights (status pending -> ready | failed).
+	HighlightsConfig = v1.HighlightsConfig
+	VideoHighlight   = v1.VideoHighlight
+
 	WatermarkConfig         = v1.WatermarkConfig
 	WatermarkPixelPlacement = v1.WatermarkPixelPlacement
 
@@ -304,46 +311,48 @@ type (
 // ---------- Param types — re-exported request messages ----------
 
 type (
-	JobCreateParams              = v1.CreateJobRequest
-	JobListParams                = v1.ListJobsRequest
-	VideoListParams              = v1.ListVideosRequest
-	VideoUpdateParams            = v1.UpdateVideoRequest
-	VideoGetStatsParams          = v1.GetStatsRequest
-	VideoListTopVideosParams     = v1.ListTopVideosRequest
-	VideoGetSeoMarkupParams      = v1.GetSeoMarkupRequest
-	VideoSeoMarkup               = v1.GetSeoMarkupResponse
-	VideoGenerateInsightsParams  = v1.GenerateInsightsRequest
-	VideoGenerateInsightsResult  = v1.GenerateInsightsResponse
-	PresetCreateParams           = v1.CreatePresetRequest
-	PresetUpdateParams           = v1.UpdatePresetRequest
-	PresetListParams             = v1.ListPresetsRequest
-	OriginCreateParams           = v1.CreateOriginRequest
-	OriginUpdateParams           = v1.UpdateOriginRequest
-	OriginListParams             = v1.ListOriginsRequest
-	AppCreateParams              = v1.CreateAppRequest
-	AppUpdateParams              = v1.UpdateAppRequest
-	AppListParams                = v1.ListAppsRequest
-	AppUpdateHostingConfigParams = v1.UpdateHostingConfigRequest
-	AppUpdatePlayerConfigParams  = v1.UpdatePlayerConfigRequest
-	AppUpdateSpendLimitParams    = v1.UpdateSpendLimitRequest
-	AppUpdateSpendLimitResponse  = v1.UpdateSpendLimitResponse
-	AppGetSpendParams            = v1.GetSpendRequest
-	AppGetPricingParams          = v1.GetPricingRequest
-	APIKeyCreateParams           = v1.CreateAPIKeyRequest
-	APIKeyListParams             = v1.ListAPIKeysRequest
-	OrgCreateParams              = v1.CreateOrganizationRequest
-	OrgUpdateParams              = v1.UpdateOrganizationRequest
-	OrgListParams                = v1.ListOrganizationsRequest
-	MembershipListParams         = v1.ListMembershipsRequest
-	UserUpdateMeParams           = v1.UpdateMeRequest
-	UserListParams               = v1.ListUsersRequest
-	UploadCreateParams           = v1.CreateUploadRequest
-	UploadCompleteParams         = v1.CompleteUploadRequest
-	VideoCreateFromUrlParams     = v1.CreateFromUrlRequest
-	MultipartCreateParams        = v1.CreateMultipartUploadRequest
-	MultipartPartURLsParams      = v1.GetUploadPartUrlsRequest
-	MultipartCompleteParams      = v1.CompleteMultipartUploadRequest
-	MultipartAbortParams         = v1.AbortMultipartUploadRequest
+	JobCreateParams               = v1.CreateJobRequest
+	JobListParams                 = v1.ListJobsRequest
+	VideoListParams               = v1.ListVideosRequest
+	VideoUpdateParams             = v1.UpdateVideoRequest
+	VideoGetStatsParams           = v1.GetStatsRequest
+	VideoListTopVideosParams      = v1.ListTopVideosRequest
+	VideoGetSeoMarkupParams       = v1.GetSeoMarkupRequest
+	VideoSeoMarkup                = v1.GetSeoMarkupResponse
+	VideoGenerateInsightsParams   = v1.GenerateInsightsRequest
+	VideoGenerateInsightsResult   = v1.GenerateInsightsResponse
+	VideoGenerateHighlightsParams = v1.GenerateHighlightsRequest
+	VideoGenerateHighlightsResult = v1.GenerateHighlightsResponse
+	PresetCreateParams            = v1.CreatePresetRequest
+	PresetUpdateParams            = v1.UpdatePresetRequest
+	PresetListParams              = v1.ListPresetsRequest
+	OriginCreateParams            = v1.CreateOriginRequest
+	OriginUpdateParams            = v1.UpdateOriginRequest
+	OriginListParams              = v1.ListOriginsRequest
+	AppCreateParams               = v1.CreateAppRequest
+	AppUpdateParams               = v1.UpdateAppRequest
+	AppListParams                 = v1.ListAppsRequest
+	AppUpdateHostingConfigParams  = v1.UpdateHostingConfigRequest
+	AppUpdatePlayerConfigParams   = v1.UpdatePlayerConfigRequest
+	AppUpdateSpendLimitParams     = v1.UpdateSpendLimitRequest
+	AppUpdateSpendLimitResponse   = v1.UpdateSpendLimitResponse
+	AppGetSpendParams             = v1.GetSpendRequest
+	AppGetPricingParams           = v1.GetPricingRequest
+	APIKeyCreateParams            = v1.CreateAPIKeyRequest
+	APIKeyListParams              = v1.ListAPIKeysRequest
+	OrgCreateParams               = v1.CreateOrganizationRequest
+	OrgUpdateParams               = v1.UpdateOrganizationRequest
+	OrgListParams                 = v1.ListOrganizationsRequest
+	MembershipListParams          = v1.ListMembershipsRequest
+	UserUpdateMeParams            = v1.UpdateMeRequest
+	UserListParams                = v1.ListUsersRequest
+	UploadCreateParams            = v1.CreateUploadRequest
+	UploadCompleteParams          = v1.CompleteUploadRequest
+	VideoCreateFromUrlParams      = v1.CreateFromUrlRequest
+	MultipartCreateParams         = v1.CreateMultipartUploadRequest
+	MultipartPartURLsParams       = v1.GetUploadPartUrlsRequest
+	MultipartCompleteParams       = v1.CompleteMultipartUploadRequest
+	MultipartAbortParams          = v1.AbortMultipartUploadRequest
 
 	IngestRuleCreateParams = v1.CreateIngestRuleRequest
 	IngestRuleUpdateParams = v1.UpdateIngestRuleRequest
@@ -417,6 +426,8 @@ type (
 	TranscriptFormat = v1.TranscriptFormat
 	InsightsStatus   = v1.InsightsStatus
 	InsightsSource   = v1.InsightsSource
+
+	VideoHighlightStatus = v1.VideoHighlightStatus
 
 	WatermarkAnchor = v1.WatermarkAnchor
 
@@ -671,6 +682,15 @@ const (
 	InsightsSourceUnspecified = v1.InsightsSource_INSIGHTS_SOURCE_UNSPECIFIED
 	InsightsSourceJob         = v1.InsightsSource_INSIGHTS_SOURCE_JOB
 	InsightsSourceVideo       = v1.InsightsSource_INSIGHTS_SOURCE_VIDEO
+)
+
+// VideoHighlightStatus values. Pending: its clip job is queued or rendering.
+// Ready: PlaybackUrl and PosterUrl are available. Failed: ErrorCode says why.
+const (
+	VideoHighlightStatusUnspecified = v1.VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_UNSPECIFIED
+	VideoHighlightStatusPending     = v1.VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_PENDING
+	VideoHighlightStatusReady       = v1.VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_READY
+	VideoHighlightStatusFailed      = v1.VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_FAILED
 )
 
 // WatermarkAnchor values. The relative-placement anchor region a watermark is

@@ -240,6 +240,39 @@ kit, err := client.Videos.GetSeoMarkup(ctx, &transcodely.VideoGetSeoMarkupParams
 // kit.GetJsonLd(), kit.GetSitemapEntry(), kit.GetHtmlFragment()
 ```
 
+## Highlight clips
+
+A hosted video with ready insights can get short MP4 highlight clips cut
+around the quotes insights picked (default up to 5 clips of 8 to 60 seconds,
+padded 1.5 s each side). Each clip bills its rendered minutes at your encoding
+rate, with no processing fee:
+
+```go
+maxCount := int32(3)
+highlights, err := client.Videos.GenerateHighlights(ctx, &transcodely.VideoGenerateHighlightsParams{
+    Id:     videoID, // Language is needed only when the video has insights in several languages
+    Config: &transcodely.HighlightsConfig{MaxCount: &maxCount}, // optional; every field defaults
+})
+if err != nil {
+    log.Fatal(err)
+}
+for _, h := range highlights {
+    log.Println(h.GetId(), h.GetStartSeconds(), h.GetEndSeconds(), h.GetStatus()) // hl_..., pending
+}
+```
+
+Or ask for them at upload time with `Highlights: &transcodely.HighlightsConfig{Enabled: true}`
+next to `AutoInsights: true`. The clips appear on `video.GetHighlights()`; once
+one is `transcodely.VideoHighlightStatusReady` it carries a `PlaybackUrl` and a
+`PosterUrl`. The `video.highlights.ready` and `video.highlights.failed` webhook
+events (`transcodely.EventTypeVideoHighlightsReady` / `...Failed`) fire once the
+whole set has finished and carry the video: read it with `event.Video()`.
+
+Each clip is rendered by an ordinary clip job, tagged with `transcodely_kind`,
+`transcodely_highlight_id` and `transcodely_video_id` metadata. Metadata keys
+starting with `transcodely_` are reserved for the platform: a job or ingest
+rule that sets one is refused with `parameter_invalid` on `metadata.<key>`.
+
 ## Iterate every job
 
 ```go

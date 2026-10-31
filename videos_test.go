@@ -28,6 +28,14 @@ type fakeVideoClient struct {
 
 	gotInsights *v1.GenerateInsightsRequest
 	insights    *v1.GenerateInsightsResponse
+
+	gotHighlights *v1.GenerateHighlightsRequest
+	highlights    *v1.GenerateHighlightsResponse
+}
+
+func (f *fakeVideoClient) GenerateHighlights(_ context.Context, req *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error) {
+	f.gotHighlights = req.Msg
+	return connect.NewResponse(f.highlights), nil
 }
 
 func (f *fakeVideoClient) GenerateInsights(_ context.Context, req *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error) {
@@ -240,5 +248,42 @@ func TestVideos_GenerateInsights_RequestAndUnwrap(t *testing.T) {
 	}
 	if fake.gotInsights == nil {
 		t.Error("GenerateInsights(nil) did not forward a request")
+	}
+}
+
+func TestVideos_GenerateHighlights_RequestAndUnwrap(t *testing.T) {
+	fake := &fakeVideoClient{
+		highlights: &v1.GenerateHighlightsResponse{
+			Highlights: []*v1.VideoHighlight{
+				{Id: "hl_a1b2c3d4e5f6g7", StartSeconds: 18.5, EndSeconds: 31.5, Status: v1.VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_PENDING, Language: "eng"},
+				{Id: "hl_b1b2c3d4e5f6g7", StartSeconds: 40, EndSeconds: 52, Status: v1.VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_PENDING, Language: "eng"},
+			},
+		},
+	}
+	v := newVideos(fake, fake, &config{})
+
+	maxCount := int32(3)
+	hls, err := v.GenerateHighlights(context.Background(), &VideoGenerateHighlightsParams{
+		Id:       "vid_abc",
+		Language: strptr("eng"),
+		Config:   &HighlightsConfig{MaxCount: &maxCount},
+	})
+	if err != nil {
+		t.Fatalf("GenerateHighlights() error = %v", err)
+	}
+	if fake.gotHighlights.GetId() != "vid_abc" || fake.gotHighlights.GetLanguage() != "eng" ||
+		fake.gotHighlights.GetConfig().GetMaxCount() != 3 || fake.gotHighlights.AppId != nil {
+		t.Errorf("forwarded request = %+v", fake.gotHighlights)
+	}
+	if len(hls) != 2 || hls[0].GetId() != "hl_a1b2c3d4e5f6g7" || hls[0].GetStatus() != VideoHighlightStatusPending {
+		t.Errorf("GenerateHighlights() = %+v, want the response's highlights", hls)
+	}
+
+	fake.gotHighlights = nil
+	if _, err := v.GenerateHighlights(context.Background(), nil); err != nil {
+		t.Fatalf("GenerateHighlights(nil) error = %v", err)
+	}
+	if fake.gotHighlights == nil {
+		t.Error("GenerateHighlights(nil) did not forward a request")
 	}
 }

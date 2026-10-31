@@ -487,7 +487,9 @@ type IngestRuleAction struct {
 	Priority JobPriority `protobuf:"varint,6,opt,name=priority,proto3,enum=transcodely.v1.JobPriority" json:"priority,omitempty"`
 	// Metadata copied onto every job the rule creates. The rule also adds
 	// `ingest_rule_id` and `ingest_object_key` of its own, which you can read
-	// back on the job and in webhook payloads.
+	// back on the job and in webhook payloads. Keys starting with
+	// `transcodely_` are reserved for the platform and refused when the rule is
+	// created or updated (`parameter_invalid` on `action.metadata.<key>`).
 	Metadata      map[string]string `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

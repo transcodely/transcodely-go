@@ -80,6 +80,9 @@ const (
 	// VideoServiceGenerateInsightsProcedure is the fully-qualified name of the VideoService's
 	// GenerateInsights RPC.
 	VideoServiceGenerateInsightsProcedure = "/transcodely.v1.VideoService/GenerateInsights"
+	// VideoServiceGenerateHighlightsProcedure is the fully-qualified name of the VideoService's
+	// GenerateHighlights RPC.
+	VideoServiceGenerateHighlightsProcedure = "/transcodely.v1.VideoService/GenerateHighlights"
 )
 
 // VideoServiceClient is a client for the transcodely.v1.VideoService service.
@@ -153,6 +156,31 @@ type VideoServiceClient interface {
 	// video has no AI captions, and insights_transcript_unavailable when the
 	// caption track has no transcript.
 	GenerateInsights(context.Context, *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error)
+	// Cut highlight clips from a hosted video: up to max_count short MP4s
+	// (default 5) around the verbatim quotes its ready AI insights picked
+	// (TranscriptInsights.highlights), rendered at the video's top rendition's
+	// codec and resolution. Returns the highlights in "pending"; they also
+	// appear on Video.highlights, and video.highlights.ready (or
+	// video.highlights.failed, when none could be rendered) fires once every
+	// one of them has finished.
+	//
+	// Each highlight is rendered by its own clip job on the video
+	// (input_video_id = the video, with a job-level clip), billed as its
+	// rendered (clipped) minutes at your effective encoding rate and nothing
+	// else: highlight clips carry no per-job processing fee. Those jobs count
+	// toward your concurrency and queue limits and appear in your job list.
+	//
+	// While any highlight of the video is pending, the call returns the
+	// current highlights and bills nothing new. Once all are ready or failed, a
+	// new call replaces them with a new set.
+	//
+	// Refused with failed_precondition: code highlights_require_insights when
+	// the video has no ready AI insights (in the language), and
+	// highlights_no_moments when they picked no quote inside the video; also
+	// while the video is still processing or when the app's managed hosting is
+	// off. Account refusals (spend limit, past due, suspended) are the same as
+	// CreateJob's.
+	GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error)
 }
 
 // NewVideoServiceClient constructs a client for the transcodely.v1.VideoService service. By
@@ -268,6 +296,12 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(videoServiceMethods.ByName("GenerateInsights")),
 			connect.WithClientOptions(opts...),
 		),
+		generateHighlights: connect.NewClient[v1.GenerateHighlightsRequest, v1.GenerateHighlightsResponse](
+			httpClient,
+			baseURL+VideoServiceGenerateHighlightsProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("GenerateHighlights")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -290,6 +324,7 @@ type videoServiceClient struct {
 	listTopVideos           *connect.Client[v1.ListTopVideosRequest, v1.ListTopVideosResponse]
 	getSeoMarkup            *connect.Client[v1.GetSeoMarkupRequest, v1.GetSeoMarkupResponse]
 	generateInsights        *connect.Client[v1.GenerateInsightsRequest, v1.GenerateInsightsResponse]
+	generateHighlights      *connect.Client[v1.GenerateHighlightsRequest, v1.GenerateHighlightsResponse]
 }
 
 // CreateUpload calls transcodely.v1.VideoService.CreateUpload.
@@ -377,6 +412,11 @@ func (c *videoServiceClient) GenerateInsights(ctx context.Context, req *connect.
 	return c.generateInsights.CallUnary(ctx, req)
 }
 
+// GenerateHighlights calls transcodely.v1.VideoService.GenerateHighlights.
+func (c *videoServiceClient) GenerateHighlights(ctx context.Context, req *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error) {
+	return c.generateHighlights.CallUnary(ctx, req)
+}
+
 // VideoServiceHandler is an implementation of the transcodely.v1.VideoService service.
 type VideoServiceHandler interface {
 	// Create a presigned upload URL for direct browser/client upload.
@@ -448,6 +488,31 @@ type VideoServiceHandler interface {
 	// video has no AI captions, and insights_transcript_unavailable when the
 	// caption track has no transcript.
 	GenerateInsights(context.Context, *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error)
+	// Cut highlight clips from a hosted video: up to max_count short MP4s
+	// (default 5) around the verbatim quotes its ready AI insights picked
+	// (TranscriptInsights.highlights), rendered at the video's top rendition's
+	// codec and resolution. Returns the highlights in "pending"; they also
+	// appear on Video.highlights, and video.highlights.ready (or
+	// video.highlights.failed, when none could be rendered) fires once every
+	// one of them has finished.
+	//
+	// Each highlight is rendered by its own clip job on the video
+	// (input_video_id = the video, with a job-level clip), billed as its
+	// rendered (clipped) minutes at your effective encoding rate and nothing
+	// else: highlight clips carry no per-job processing fee. Those jobs count
+	// toward your concurrency and queue limits and appear in your job list.
+	//
+	// While any highlight of the video is pending, the call returns the
+	// current highlights and bills nothing new. Once all are ready or failed, a
+	// new call replaces them with a new set.
+	//
+	// Refused with failed_precondition: code highlights_require_insights when
+	// the video has no ready AI insights (in the language), and
+	// highlights_no_moments when they picked no quote inside the video; also
+	// while the video is still processing or when the app's managed hosting is
+	// off. Account refusals (spend limit, past due, suspended) are the same as
+	// CreateJob's.
+	GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error)
 }
 
 // NewVideoServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -559,6 +624,12 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(videoServiceMethods.ByName("GenerateInsights")),
 		connect.WithHandlerOptions(opts...),
 	)
+	videoServiceGenerateHighlightsHandler := connect.NewUnaryHandler(
+		VideoServiceGenerateHighlightsProcedure,
+		svc.GenerateHighlights,
+		connect.WithSchema(videoServiceMethods.ByName("GenerateHighlights")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.VideoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VideoServiceCreateUploadProcedure:
@@ -595,6 +666,8 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceGetSeoMarkupHandler.ServeHTTP(w, r)
 		case VideoServiceGenerateInsightsProcedure:
 			videoServiceGenerateInsightsHandler.ServeHTTP(w, r)
+		case VideoServiceGenerateHighlightsProcedure:
+			videoServiceGenerateHighlightsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -670,4 +743,8 @@ func (UnimplementedVideoServiceHandler) GetSeoMarkup(context.Context, *connect.R
 
 func (UnimplementedVideoServiceHandler) GenerateInsights(context.Context, *connect.Request[v1.GenerateInsightsRequest]) (*connect.Response[v1.GenerateInsightsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GenerateInsights is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GenerateHighlights is not implemented"))
 }

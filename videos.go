@@ -257,6 +257,30 @@ func (v *Videos) GenerateInsights(ctx context.Context, params *VideoGenerateInsi
 	return resp.Msg.GetInsights(), nil
 }
 
+// GenerateHighlights cuts highlight clips from a hosted video: up to
+// Config.MaxCount short MP4s (default 5) around the quotes its ready AI
+// insights picked, and returns them in status pending. They also appear on
+// Video.Highlights, and the video.highlights.ready (or
+// video.highlights.failed, when none could be rendered) webhook fires once
+// every one has finished.
+//
+// Each clip is its own clip job on the video, billed as its rendered
+// (clipped) minutes at your effective encoding rate, with no processing fee.
+// While any highlight of the video is pending, the call returns the current
+// set and bills nothing new; once all are ready or failed, a new call
+// replaces them. A video without ready insights is refused with
+// failed_precondition (code highlights_require_insights).
+func (v *Videos) GenerateHighlights(ctx context.Context, params *VideoGenerateHighlightsParams) ([]*VideoHighlight, error) {
+	if params == nil {
+		params = &VideoGenerateHighlightsParams{}
+	}
+	resp, err := v.client.GenerateHighlights(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetHighlights(), nil
+}
+
 type videoWatchAdapter struct {
 	stream *connect.ServerStreamForClient[v1.WatchVideoResponse]
 }

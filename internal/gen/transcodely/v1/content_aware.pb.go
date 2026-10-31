@@ -26,11 +26,8 @@ const (
 
 // Content-aware encoding mode.
 //
-// One of the two modes ships: `per_title` is accepted and acted on. `auto_abr`
-// is still rejected at CreateJob with error code `parameter_unsupported` and
-// the message "auto_abr is not available yet; per_title is" (issue #167),
-// because it would change the NUMBER of renditions after the job was already
-// quoted per rendition at create time.
+// Both modes are accepted and acted on. `per_title` tunes the ladder you
+// declare; `auto_abr` builds the ladder from one seed rendition.
 type ContentAwareMode int32
 
 const (
@@ -41,8 +38,36 @@ const (
 	// CRF offsets the ladder already declares. Priced at 1.5x. What the search
 	// decided comes back on OutputReport.content_aware.
 	ContentAwareMode_CONTENT_AWARE_MODE_PER_TITLE ContentAwareMode = 1
-	// Generate the bitrate ladder automatically. NOT YET ACCEPTED — rejected at
-	// create.
+	// Choose which rungs of a standard ladder to render, and tune each rung's
+	// CRF to the content.
+	//
+	// You declare a seed (one video rendition giving the codec, quality tier and
+	// optional framerate) and optional bounds (AutoABRConfig). The API expands
+	// the seed into a CEILING: the standard rungs (2160p, 1440p, 1080p, 720p,
+	// 480p) inside the bounds. Tiers are names; nothing is ever upscaled: each
+	// rung renders at the source scaled into its tier's frame (turned on its
+	// side for a portrait source), never larger than the source, and at most
+	// one tier at or above the source's short side is kept, rendered at the
+	// source's own size (a 1920x800 source: 1080p at 1920x800, 720p at
+	// 1280x534, 480p at 854x356; a 1080x1920 phone video: 1080x1920, 720x1280,
+	// 480x854). Each rung is billed at the smaller of its tier and the tier its
+	// rendered pixels need, never above the picture it carries.
+	// Capped at max_variants by keeping the top and bottom rung. The worker runs
+	// the per-title search once on the top rung, sets every rung's CRF from
+	// it, and drops a rung whose
+	// delivered bitrate would not be meaningfully below the rung above it. It
+	// never adds a rung that is not in the ceiling.
+	//
+	// Billing: the output is quoted at the ceiling and billed for the rungs
+	// actually rendered, at the 1.5x content-aware multiplier, so the bill is
+	// never above the estimate shown once the source has been probed. When the
+	// analysis cannot run (for example a source shorter than 120 seconds), the
+	// whole ceiling is rendered at the quality tier's static CRFs and billed at
+	// 1.0x. Streaming outputs (hls, dash, adaptive) only.
+	//
+	// This is not a convex-hull per-title ladder: rungs are not compared against
+	// each other on quality, and no resolution outside the standard set is ever
+	// produced.
 	ContentAwareMode_CONTENT_AWARE_MODE_AUTO_ABR ContentAwareMode = 2
 )
 
@@ -87,22 +112,36 @@ func (ContentAwareMode) EnumDescriptor() ([]byte, []int) {
 	return file_transcodely_v1_content_aware_proto_rawDescGZIP(), []int{0}
 }
 
-// Auto ABR ladder generation constraints.
-//
-// NOT YET ACCEPTED — see ContentAwareConfig. These constraints are validated
-// for shape but never applied, because a request in auto_abr mode is rejected
-// at create.
+// Bounds for an auto_abr ladder. Only meaningful with mode `auto_abr`; sent
+// with `per_title` it is refused with `parameter_forbidden`. See
+// CONTENT_AWARE_MODE_AUTO_ABR for how the bounds shape the ladder.
 type AutoABRConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Minimum number of variants in the ladder.
-	// Default: 2.
+	// Fewest rungs the ladder may be pruned to. Default: 2.
+	//
+	// A ladder can never hold more rungs than the source allows: only one tier
+	// at or above the source's short side is kept, so a 480-line source yields
+	// one rung whatever this says. When pruning would leave fewer rungs than
+	// this, rungs are put back from the bottom of the ladder up. Set it to 1 to
+	// say a single rung is an acceptable result for any source. Must not exceed
+	// max_variants, nor the number of standard rungs between min_resolution and
+	// max_resolution.
 	MinVariants *int32 `protobuf:"varint,1,opt,name=min_variants,json=minVariants,proto3,oneof" json:"min_variants,omitempty"`
-	// Maximum number of variants in the ladder.
-	// Default: 8.
+	// Most rungs the ladder may hold. A ceiling longer than this keeps its TOP
+	// rung (quality) and its BOTTOM rung (reach) and drops interior rungs from
+	// the highest down: 2160p..480p capped at 3 is 2160p, 720p, 480p. Default:
+	// no cap beyond the standard rungs in range (at most five).
 	MaxVariants *int32 `protobuf:"varint,2,opt,name=max_variants,json=maxVariants,proto3,oneof" json:"max_variants,omitempty"`
-	// Lowest resolution in the generated ladder.
+	// Lowest rung the ladder may contain. Default: 480p. When the source's short
+	// side is below this, the ladder is one rung: the smallest tier at or above
+	// the source's short side, rendered at the source's own size.
 	MinResolution Resolution `protobuf:"varint,3,opt,name=min_resolution,json=minResolution,proto3,enum=transcodely.v1.Resolution" json:"min_resolution,omitempty"`
-	// Highest resolution in the generated ladder.
+	// Highest rung the ladder may contain. Default: 1080p, NOT the highest the
+	// source allows — 1440p and 2160p rungs must be asked for here. The worker
+	// that renders the job is sized from this ceiling before the source is
+	// known, and a default that sized every job for 4K would bill nobody more
+	// but waste a large machine on most sources. 4320p is accepted and behaves
+	// as 2160p, the largest standard rung.
 	MaxResolution Resolution `protobuf:"varint,4,opt,name=max_resolution,json=maxResolution,proto3,enum=transcodely.v1.Resolution" json:"max_resolution,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -174,20 +213,33 @@ func (x *AutoABRConfig) GetMaxResolution() Resolution {
 // unchanged — same renditions, same resolutions — so the price quoted at create
 // still holds, with the 1.5x per-title multiplier applied.
 //
-// Three requests are refused at create:
-//   - `auto_abr` mode (`parameter_unsupported`) — not available yet;
+// In `auto_abr` mode the output declares one seed rendition and the API
+// expands it into a ceiling of standard rungs; see CONTENT_AWARE_MODE_AUTO_ABR.
+//
+// Requests refused at create, for `per_title`:
 //   - an output with no video renditions, or one whose every video rendition is
 //     pinned to an explicit bitrate (`parameter_incompatible`) — a pinned
 //     rendition ignores CRF, so the search would change nothing while still
 //     being billed;
-//   - a source shorter than 120 seconds, refused at probe with
-//     `per_title_source_too_short` once the input has been measured.
+//   - an `auto_abr` block (`parameter_forbidden`).
+//
+// For `auto_abr`: a non-streaming output (`parameter_unsupported`); more or
+// fewer than one video rendition (`parameter_incompatible`); a seed that
+// names a resolution, width or height (`parameter_forbidden`) or a bitrate
+// (`parameter_incompatible`); inverted bounds (`parameter_invalid`); and a
+// min_variants above the standard rungs in range (`parameter_out_of_range`).
+//
+// Either mode, on an output with any `hdr.mode: tonemap` variant
+// (`parameter_forbidden` on `outputs[i].content_aware`): the search would score
+// the HDR source, not the tone-mapped picture that is delivered.
+//
+// A source shorter than 120 seconds is refused at probe with
+// `per_title_source_too_short` once the input has been measured.
 //
 // What the search decided is reported back on OutputReport.content_aware.
 type ContentAwareConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Encoding mode (required). `per_title` is accepted; `auto_abr` is rejected
-	// at create.
+	// Encoding mode (required): `per_title` or `auto_abr`.
 	Mode ContentAwareMode `protobuf:"varint,1,opt,name=mode,proto3,enum=transcodely.v1.ContentAwareMode" json:"mode,omitempty"`
 	// Override VMAF target (80-97). Default: 93, regardless of quality tier.
 	//
@@ -200,8 +252,8 @@ type ContentAwareConfig struct {
 	// The value the analysis actually searched against is reported back on
 	// OutputReport.content_aware.vmaf_target, which is the one to read.
 	VmafTarget *float64 `protobuf:"fixed64,2,opt,name=vmaf_target,json=vmafTarget,proto3,oneof" json:"vmaf_target,omitempty"`
-	// Auto ABR constraints (only for auto_abr mode). NOT YET ACCEPTED — an
-	// auto_abr request is rejected at create whatever these say.
+	// Ladder bounds, only for `auto_abr` mode. Refused with
+	// `parameter_forbidden` on `per_title`.
 	AutoAbr       *AutoABRConfig `protobuf:"bytes,3,opt,name=auto_abr,json=autoAbr,proto3,oneof" json:"auto_abr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -349,10 +401,10 @@ var file_transcodely_v1_content_aware_proto_rawDesc = string([]byte{
 	0x02, 0x0a, 0x0d, 0x41, 0x75, 0x74, 0x6f, 0x41, 0x42, 0x52, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x12, 0x31, 0x0a, 0x0c, 0x6d, 0x69, 0x6e, 0x5f, 0x76, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x73,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x42, 0x09, 0xba, 0x48, 0x06, 0x1a, 0x04, 0x18, 0x14, 0x28,
-	0x02, 0x48, 0x00, 0x52, 0x0b, 0x6d, 0x69, 0x6e, 0x56, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x73,
+	0x01, 0x48, 0x00, 0x52, 0x0b, 0x6d, 0x69, 0x6e, 0x56, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x73,
 	0x88, 0x01, 0x01, 0x12, 0x31, 0x0a, 0x0c, 0x6d, 0x61, 0x78, 0x5f, 0x76, 0x61, 0x72, 0x69, 0x61,
 	0x6e, 0x74, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x42, 0x09, 0xba, 0x48, 0x06, 0x1a, 0x04,
-	0x18, 0x14, 0x28, 0x02, 0x48, 0x01, 0x52, 0x0b, 0x6d, 0x61, 0x78, 0x56, 0x61, 0x72, 0x69, 0x61,
+	0x18, 0x14, 0x28, 0x01, 0x48, 0x01, 0x52, 0x0b, 0x6d, 0x61, 0x78, 0x56, 0x61, 0x72, 0x69, 0x61,
 	0x6e, 0x74, 0x73, 0x88, 0x01, 0x01, 0x12, 0x4b, 0x0a, 0x0e, 0x6d, 0x69, 0x6e, 0x5f, 0x72, 0x65,
 	0x73, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1a,
 	0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31, 0x2e,

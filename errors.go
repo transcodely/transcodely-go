@@ -126,6 +126,7 @@ func fromConnectError(err error) error {
 
 	base := baseError{
 		msg:      connectErr.Message(),
+		typ:      connectErr.Code().String(),
 		httpCode: httpStatusForConnectCode(connectErr.Code()),
 		cause:    err,
 	}
@@ -134,7 +135,9 @@ func fromConnectError(err error) error {
 	// Some servers return JSON in the message; fall back to plain text.
 	if payload := parseErrorPayload(connectErr.Message()); payload != nil {
 		base.code = payload.Code
-		base.typ = payload.Type
+		if payload.Type != "" {
+			base.typ = payload.Type
+		}
 		base.errors = payload.Errors
 		if payload.Message != "" {
 			base.msg = payload.Message

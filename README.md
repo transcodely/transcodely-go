@@ -278,12 +278,14 @@ if err != nil {
 }
 ```
 
-Every validation refusal, whether the request schema, a codec check or a
-feature rule caught it, comes back as an `*InvalidRequestError` listing every bad
-field at once. Each violation's `Description` starts with that field's error code
-in brackets, for example `[parameter_out_of_range] value must be ...`, and
-`ErrorCode()` holds the error type (`validation_error`, `codec_error` or
-`feature_error`).
+Every validation refusal, whether the request schema, a codec check or a feature
+rule caught it, comes back as an `*InvalidRequestError` listing every bad field
+at once. Each violation's `Description` starts with that field's error code in
+brackets, for example `[parameter_out_of_range] value must be ...`, and
+`ErrorCode()` holds the error type, such as `validation_error`,
+`invalid_request_error`, `codec_error` or `feature_error`. A refusal that names
+no field carries no detail, so its code is empty. `Type()` holds the Connect
+code, `invalid_argument`.
 
 ## Origins
 

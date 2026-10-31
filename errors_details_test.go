@@ -75,6 +75,9 @@ func TestInvalidRequestError_ReadsErrorDetailsFromWire(t *testing.T) {
 	if invalid.ErrorCode() != "validation_error" {
 		t.Errorf("ErrorCode() = %q, want validation_error", invalid.ErrorCode())
 	}
+	if invalid.Type() != "invalid_argument" {
+		t.Errorf("Type() = %q, want invalid_argument (the Connect code, as the JS and Python SDKs report it)", invalid.Type())
+	}
 	if invalid.RequestID() != "req_test" {
 		t.Errorf("RequestID() = %q", invalid.RequestID())
 	}

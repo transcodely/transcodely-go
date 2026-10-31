@@ -4,6 +4,14 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.17](https://github.com/transcodely/transcodely-go/compare/v0.3.16...v0.3.17) (2026-10-31)
+
+
+### Features
+
+* highlight clips — Videos.GenerateHighlights, VideoHighlight, two webhook events ([ab277cf](https://github.com/transcodely/transcodely-go/commit/ab277cf22aac18d83ead7183bb3d3b4627349937))
+* resync protos for highlights (api v5.31.0) ([e269cf8](https://github.com/transcodely/transcodely-go/commit/e269cf813913510711b1c2c3c997784d852186f7))
+
 ## [0.3.16](https://github.com/transcodely/transcodely-go/compare/v0.3.15...v0.3.16) (2026-10-31)
 
 

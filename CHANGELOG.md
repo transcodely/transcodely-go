@@ -4,6 +4,20 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.16](https://github.com/transcodely/transcodely-go/compare/v0.3.15...v0.3.16) (2026-10-31)
+
+
+### Features
+
+* resync protos — auto_abr accepted, tone-mapping refusal rule, validation error envelope ([f0f669a](https://github.com/transcodely/transcodely-go/commit/f0f669a021082c8ebb40a3d9c5439fa0b97ba130))
+* resync protos — auto_abr accepted, tone-mapping refusal rule, validation error envelope ([636c0f2](https://github.com/transcodely/transcodely-go/commit/636c0f2735a03fdeebd1ab558d64ae83d61c7873))
+
+
+### Bug Fixes
+
+* read field violations from the ErrorDetails detail ([0ee43c0](https://github.com/transcodely/transcodely-go/commit/0ee43c0a73a0f3ad8448765b572f96f721f34127))
+* report the Connect code as Type(), matching the JS and Python SDKs ([1e3e091](https://github.com/transcodely/transcodely-go/commit/1e3e091c31854ca6edd662374cbc5358c61ff7b6))
+
 ## [0.3.15](https://github.com/transcodely/transcodely-go/compare/v0.3.14...v0.3.15) (2026-10-30)
 
 

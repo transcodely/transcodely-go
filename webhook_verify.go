@@ -59,8 +59,9 @@ const (
 	EventTypeVideoFailed       EventType = "video.failed"
 	EventTypeVideoDeleted      EventType = "video.deleted"
 	// EventTypeVideoSourceScheduledForDeletion fires when a hosted video's
-	// original source file is scheduled for deletion by the app's
-	// delete_source_after_days lifecycle rule, at least 72 hours before the
+	// original source file is scheduled for deletion because its retention
+	// window ends (the app's delete_source_after_days, else the 7-day platform
+	// default; retained sources never are), at least 72 hours before the
 	// deletion. Renditions and playback are never affected.
 	EventTypeVideoSourceScheduledForDeletion EventType = "video.source_scheduled_for_deletion"
 	// EventTypeVideoInsightsReady fires when insights requested with

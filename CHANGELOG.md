@@ -4,6 +4,14 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.18](https://github.com/transcodely/transcodely-go/compare/v0.3.17...v0.3.18) (2026-11-02)
+
+
+### Features
+
+* resync protos for source retention (api v5.33.0) ([0aaa4ed](https://github.com/transcodely/transcodely-go/commit/0aaa4ed00ee5ce92c15e5066687acdb1f2c44335))
+* source retention — source_pinned at creation, Video.source_expires_at, retained-source usage ([de9c902](https://github.com/transcodely/transcodely-go/commit/de9c902f36fb4b6305be0cc0f3d3a4dd6a1813ce))
+
 ## [0.3.17](https://github.com/transcodely/transcodely-go/compare/v0.3.16...v0.3.17) (2026-10-31)
 
 

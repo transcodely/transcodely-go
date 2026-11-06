@@ -82,7 +82,7 @@ func (j *Jobs) Cancel(ctx context.Context, id string) (*Job, error) {
 }
 
 // Confirm starts a job currently in AWAITING_CONFIRMATION (created with
-// delay_start = true). Returns the job in PROCESSING state.
+// delayed_start = true). Returns the job in PROCESSING state.
 func (j *Jobs) Confirm(ctx context.Context, id string) (*Job, error) {
 	resp, err := j.client.Confirm(ctx, connect.NewRequest(&v1.ConfirmJobRequest{Id: id}))
 	if err != nil {

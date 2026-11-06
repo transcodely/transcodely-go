@@ -50,7 +50,7 @@ func TestFromConnectError_StatusMapping(t *testing.T) {
 		{"FailedPrecondition→Precondition", connect.CodeFailedPrecondition, func(e error) bool {
 			var t *PreconditionError
 			return errors.As(e, &t)
-		}, http.StatusPreconditionFailed},
+		}, http.StatusBadRequest},
 		{"Internal→APIError", connect.CodeInternal, func(e error) bool {
 			var t *APIError
 			return errors.As(e, &t)
@@ -169,7 +169,8 @@ func TestHTTPStatusForConnectCode(t *testing.T) {
 		{connect.CodeNotFound, http.StatusNotFound},
 		{connect.CodeAlreadyExists, http.StatusConflict},
 		{connect.CodeInvalidArgument, http.StatusBadRequest},
-		{connect.CodeFailedPrecondition, http.StatusPreconditionFailed},
+		{connect.CodeFailedPrecondition, http.StatusBadRequest},
+		{connect.CodeCanceled, 499},
 		{connect.CodeInternal, http.StatusInternalServerError},
 		{connect.CodeResourceExhausted, http.StatusTooManyRequests},
 		{connect.CodeUnavailable, http.StatusServiceUnavailable},

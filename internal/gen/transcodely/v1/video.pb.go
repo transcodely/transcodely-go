@@ -165,9 +165,8 @@ const (
 	VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_PENDING VideoHighlightStatus = 1
 	// Rendered; playback_url and poster_url are available.
 	VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_READY VideoHighlightStatus = 2
-	// Could not be rendered (or was refused); error_code says why. Its clip job,
-	// if any, bills what a failed or canceled job bills; highlight clips carry
-	// no processing fee.
+	// Could not be rendered (or was refused); error_code says why. A failed
+	// highlight bills nothing.
 	VideoHighlightStatus_VIDEO_HIGHLIGHT_STATUS_FAILED VideoHighlightStatus = 3
 )
 
@@ -4105,10 +4104,11 @@ type VideoHighlight struct {
 	// Poster frame URL, from the first frame of the clip. Same rules as
 	// playback_url.
 	PosterUrl *string `protobuf:"bytes,8,opt,name=poster_url,json=posterUrl,proto3,oneof" json:"poster_url,omitempty"`
-	// Rendered length in seconds, as measured. Present once ready.
+	// Rendered length in seconds, as measured (to the millisecond when the
+	// rendering worker reports it). Present once ready.
 	DurationSeconds *float64 `protobuf:"fixed64,9,opt,name=duration_seconds,json=durationSeconds,proto3,oneof" json:"duration_seconds,omitempty"`
-	// The clip job that renders it (billed like any clip job). Present once the
-	// job was created.
+	// The clip job that renders it; its cost is this clip's share of the set's
+	// one charge. Present once the job was created.
 	JobId *string `protobuf:"bytes,10,opt,name=job_id,json=jobId,proto3,oneof" json:"job_id,omitempty"`
 	// Language of the insights the quote came from (ISO 639-2).
 	Language string `protobuf:"bytes,11,opt,name=language,proto3" json:"language,omitempty"`

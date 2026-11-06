@@ -378,10 +378,12 @@ type ThumbnailResult struct {
 	// Generation mode that produced this file: single | interval | sprite |
 	// timestamps | animated. Lowercase string on the wire.
 	Mode string `protobuf:"bytes,3,opt,name=mode,proto3" json:"mode,omitempty"`
-	// File format: jpeg | png | webp. The sprite mode's WebVTT sidecar uses
-	// "vtt". Animated mode yields "webp" (the animated WebP) and "mp4" (the muted
-	// MP4 loop) — "mp4" rides this free-form string; it is not a ThumbnailFormat
-	// enum value.
+	// File format as produced, a free-form lowercase string: jpeg | png | webp |
+	// mp4 | vtt. The sprite mode's WebVTT sidecar uses "vtt", which has no
+	// ThumbnailFormat member. Animated mode yields "webp" (the animated WebP)
+	// and "mp4" (the muted MP4 loop); "mp4" is also requestable as the
+	// ThumbnailFormat `mp4` on animated specs, and refused elsewhere with
+	// `parameter_forbidden`.
 	Format string `protobuf:"bytes,4,opt,name=format,proto3" json:"format,omitempty"`
 	// Pixel dimensions. 0 when not applicable (e.g. the .vtt sidecar).
 	Width  int32 `protobuf:"varint,5,opt,name=width,proto3" json:"width,omitempty"`

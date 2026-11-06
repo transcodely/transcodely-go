@@ -98,8 +98,10 @@ type RateLimitError struct {
 // Errors() returns the per-field violations from the server.
 type InvalidRequestError struct{ baseError }
 
-// PreconditionError indicates a 412: preconditions not met (e.g. job not
-// cancelable in current state).
+// PreconditionError indicates Connect code failed_precondition (HTTP 400 on
+// the wire): the request is valid but the resource or account is in the wrong
+// state, e.g. a job that is not cancelable, or a billing refusal such as
+// billing_past_due.
 type PreconditionError struct{ baseError }
 
 // errorPayload mirrors the server JSON error envelope.
@@ -226,12 +228,14 @@ func parseErrorPayload(message string) *errorPayload {
 	return &p
 }
 
-// httpStatusForConnectCode mirrors the canonical Connect→HTTP status mapping.
-// Useful for surfacing HTTPStatus() to callers without forcing a connect-go dep.
+// httpStatusForConnectCode mirrors connect-go v1.18.1's connectCodeToHTTP, the
+// table the API's transport uses, so HTTPStatus() reports the status the wire
+// actually carried (failed_precondition is 400, canceled is 499).
+// TestHTTPStatusForConnectCode_MatchesConnectGo pins it against connect-go.
 func httpStatusForConnectCode(code connect.Code) int {
 	switch code {
 	case connect.CodeCanceled:
-		return 408
+		return 499
 	case connect.CodeUnknown, connect.CodeInternal, connect.CodeDataLoss:
 		return 500
 	case connect.CodeInvalidArgument, connect.CodeOutOfRange:
@@ -247,7 +251,7 @@ func httpStatusForConnectCode(code connect.Code) int {
 	case connect.CodeResourceExhausted:
 		return 429
 	case connect.CodeFailedPrecondition:
-		return 412
+		return 400
 	case connect.CodeUnimplemented:
 		return 501
 	case connect.CodeUnavailable:

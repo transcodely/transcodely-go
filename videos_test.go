@@ -31,6 +31,14 @@ type fakeVideoClient struct {
 
 	gotHighlights *v1.GenerateHighlightsRequest
 	highlights    *v1.GenerateHighlightsResponse
+
+	gotTranslate *v1.TranslateCaptionsRequest
+	translate    *v1.TranslateCaptionsResponse
+}
+
+func (f *fakeVideoClient) TranslateCaptions(_ context.Context, req *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error) {
+	f.gotTranslate = req.Msg
+	return connect.NewResponse(f.translate), nil
 }
 
 func (f *fakeVideoClient) GenerateHighlights(_ context.Context, req *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error) {
@@ -285,5 +293,52 @@ func TestVideos_GenerateHighlights_RequestAndUnwrap(t *testing.T) {
 	}
 	if fake.gotHighlights == nil {
 		t.Error("GenerateHighlights(nil) did not forward a request")
+	}
+}
+
+func TestVideos_TranslateCaptions_RequestAndResult(t *testing.T) {
+	fake := &fakeVideoClient{
+		translate: &v1.TranslateCaptionsResponse{
+			JobId:            "job_a1b2c3d4e5f6",
+			VideoId:          "vid_abc",
+			SourceLanguage:   "eng",
+			TargetLanguages:  []string{"ger"},
+			InFlight:         []*v1.TranslationInFlight{{Language: "spa", JobId: "job_f6e5d4c3b2a1"}},
+			EstimatedFeeEur:  0.36,
+			InsightsIncluded: true,
+		},
+	}
+	v := newVideos(fake, fake, &config{})
+
+	include := false
+	res, err := v.TranslateCaptions(context.Background(), &VideoTranslateCaptionsParams{
+		Id:              "vid_abc",
+		SourceLanguage:  strptr("eng"),
+		TargetLanguages: []string{"deu", "spa"},
+		IncludeInsights: &include,
+	})
+	if err != nil {
+		t.Fatalf("TranslateCaptions() error = %v", err)
+	}
+	got := fake.gotTranslate
+	if got.GetId() != "vid_abc" || got.GetSourceLanguage() != "eng" ||
+		len(got.GetTargetLanguages()) != 2 || got.GetTargetLanguages()[0] != "deu" ||
+		got.IncludeInsights == nil || got.GetIncludeInsights() || got.AppId != nil {
+		t.Errorf("forwarded request = %+v", got)
+	}
+	if res.GetJobId() != "job_a1b2c3d4e5f6" || res.GetSourceLanguage() != "eng" ||
+		len(res.GetTargetLanguages()) != 1 || res.GetTargetLanguages()[0] != "ger" ||
+		len(res.GetInFlight()) != 1 || res.GetInFlight()[0].GetLanguage() != "spa" ||
+		res.GetInFlight()[0].GetJobId() != "job_f6e5d4c3b2a1" ||
+		res.GetEstimatedFeeEur() != 0.36 || !res.GetInsightsIncluded() {
+		t.Errorf("TranslateCaptions() = %+v, want the response verbatim", res)
+	}
+
+	fake.gotTranslate = nil
+	if _, err := v.TranslateCaptions(context.Background(), nil); err != nil {
+		t.Fatalf("TranslateCaptions(nil) error = %v", err)
+	}
+	if fake.gotTranslate == nil {
+		t.Error("TranslateCaptions(nil) did not forward a request")
 	}
 }

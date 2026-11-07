@@ -2562,13 +2562,19 @@ type ExecutionTiming struct {
 	VcpuCount        *int32  `protobuf:"varint,4,opt,name=vcpu_count,json=vcpuCount,proto3,oneof" json:"vcpu_count,omitempty"`                     // Number of vCPUs
 	MemoryMb         *int32  `protobuf:"varint,5,opt,name=memory_mb,json=memoryMb,proto3,oneof" json:"memory_mb,omitempty"`                        // Memory in MB
 	// Phase durations (all in milliseconds)
-	BootDurationMs      *int64 `protobuf:"varint,10,opt,name=boot_duration_ms,json=bootDurationMs,proto3,oneof" json:"boot_duration_ms,omitempty"`                // Time to boot worker instance
-	DownloadDurationMs  *int64 `protobuf:"varint,11,opt,name=download_duration_ms,json=downloadDurationMs,proto3,oneof" json:"download_duration_ms,omitempty"`    // Time to download input file
-	ProbeDurationMs     *int64 `protobuf:"varint,12,opt,name=probe_duration_ms,json=probeDurationMs,proto3,oneof" json:"probe_duration_ms,omitempty"`             // Time to probe input (ffprobe)
-	EncodeDurationMs    *int64 `protobuf:"varint,13,opt,name=encode_duration_ms,json=encodeDurationMs,proto3,oneof" json:"encode_duration_ms,omitempty"`          // Time for encoding phase
-	UploadDurationMs    *int64 `protobuf:"varint,14,opt,name=upload_duration_ms,json=uploadDurationMs,proto3,oneof" json:"upload_duration_ms,omitempty"`          // Time to upload outputs
-	PackagingDurationMs *int64 `protobuf:"varint,15,opt,name=packaging_duration_ms,json=packagingDurationMs,proto3,oneof" json:"packaging_duration_ms,omitempty"` // Time for HLS/DASH packaging
-	TotalDurationMs     *int64 `protobuf:"varint,16,opt,name=total_duration_ms,json=totalDurationMs,proto3,oneof" json:"total_duration_ms,omitempty"`             // Total job processing time
+	BootDurationMs     *int64 `protobuf:"varint,10,opt,name=boot_duration_ms,json=bootDurationMs,proto3,oneof" json:"boot_duration_ms,omitempty"`             // Time to boot worker instance
+	DownloadDurationMs *int64 `protobuf:"varint,11,opt,name=download_duration_ms,json=downloadDurationMs,proto3,oneof" json:"download_duration_ms,omitempty"` // Time to download input file
+	ProbeDurationMs    *int64 `protobuf:"varint,12,opt,name=probe_duration_ms,json=probeDurationMs,proto3,oneof" json:"probe_duration_ms,omitempty"`          // Time to probe input (ffprobe)
+	// Encoding time. Captions-only jobs report speech recognition here
+	// (audio extract, transcription, gap recovery, correction); on a job with
+	// both, it is added to the video encode time.
+	EncodeDurationMs *int64 `protobuf:"varint,13,opt,name=encode_duration_ms,json=encodeDurationMs,proto3,oneof" json:"encode_duration_ms,omitempty"`
+	// Time to upload outputs, including caption and transcript files.
+	UploadDurationMs *int64 `protobuf:"varint,14,opt,name=upload_duration_ms,json=uploadDurationMs,proto3,oneof" json:"upload_duration_ms,omitempty"`
+	// HLS/DASH packaging time. Captions-only jobs report caption cue shaping
+	// and transcript rendering here, added to any packaging time.
+	PackagingDurationMs *int64 `protobuf:"varint,15,opt,name=packaging_duration_ms,json=packagingDurationMs,proto3,oneof" json:"packaging_duration_ms,omitempty"`
+	TotalDurationMs     *int64 `protobuf:"varint,16,opt,name=total_duration_ms,json=totalDurationMs,proto3,oneof" json:"total_duration_ms,omitempty"` // Total job processing time
 	// Transfer statistics
 	DownloadBytes     *int64   `protobuf:"varint,20,opt,name=download_bytes,json=downloadBytes,proto3,oneof" json:"download_bytes,omitempty"`                // Input file size in bytes
 	DownloadSpeedMbps *float64 `protobuf:"fixed64,21,opt,name=download_speed_mbps,json=downloadSpeedMbps,proto3,oneof" json:"download_speed_mbps,omitempty"` // Download speed in Mbps

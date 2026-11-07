@@ -273,6 +273,55 @@ Each clip is rendered by an ordinary clip job, tagged with `transcodely_kind`,
 starting with `transcodely_` are reserved for the platform: a job or ingest
 rule that sets one is refused with `parameter_invalid` on `metadata.<key>`.
 
+## Caption translation
+
+A hosted video with AI captions can have them translated into other
+languages without transcribing again. One captions-only job writes, per
+target language, a caption track, its transcript renditions and (on HLS) a
+caption rendition in the manifest; ready insights in the source language are
+translated too unless `IncludeInsights` is `false`. Billed as the
+`captions_translation` fee (EUR 0.12 per source minute per language, delivered
+languages only):
+
+```go
+res, err := client.Videos.TranslateCaptions(ctx, &transcodely.VideoTranslateCaptionsParams{
+    Id:              videoID, // SourceLanguage is needed only when the video has several AI caption tracks
+    TargetLanguages: []string{"ger", "spa"}, // ISO 639-2, up to 10
+})
+if err != nil {
+    log.Fatal(err)
+}
+log.Println(res.GetJobId(), res.GetTargetLanguages(), res.GetEstimatedFeeEur())
+for _, f := range res.GetInFlight() {
+    log.Println("already translating:", f.GetLanguage(), f.GetJobId()) // not requested again
+}
+```
+
+Or ask for it at upload time with `AutoTranslations: []string{"ger"}` next to
+`AutoCaptions: true`, or on a captions job with `Translations` on the
+`generate` subtitle track. Translated tracks carry `TranslatedFrom` (the source
+language); translated insights entries do too. Deployments without the
+feature refuse it with `parameter_unsupported`.
+
+## Guide page
+
+A public or unlisted hosted video with ready insights or a generated
+transcript can have a shareable guide page (player, insights and full
+transcript). `video.GetGuidePage()` is the video's own setting
+(`transcodely.GuidePageSettingDefault` follows the app's
+`HostingConfig.GuidePagesEnabled`; `...On` / `...Off` pin it), and
+`video.GetGuidePageEnabled()` is the resulting effective value, with
+`video.GetGuideUrl()` set only when the page would render:
+
+```go
+setting := transcodely.GuidePageSettingOn
+video, err := client.Videos.Update(ctx, &transcodely.VideoUpdateParams{Id: videoID, GuidePage: &setting})
+```
+
+`guide_page_enabled` is absent from `video.*` webhook payloads, which do not
+resolve the app default: read `GuidePage` there, or fetch the video for the
+effective value and URL.
+
 ## Source retention
 
 Original source files of hosted videos are temporary. Each one is deleted when

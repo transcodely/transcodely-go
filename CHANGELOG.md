@@ -4,6 +4,22 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.19](https://github.com/transcodely/transcodely-go/compare/v0.3.18...v0.3.19) (2026-11-07)
+
+
+### Features
+
+* protos for api 5.38.0 (guide page, caption glossary, caption translation contract) ([7944890](https://github.com/transcodely/transcodely-go/commit/79448908f4f454410370106e5f92149860dad769))
+* resync protos for api 5.38.0 — guide page, caption translation, glossary ([44359e3](https://github.com/transcodely/transcodely-go/commit/44359e34fd9cc953bf384419dc0e9038d0d5f8b7))
+
+
+### Bug Fixes
+
+* **errors:** classify failed_precondition as PreconditionError ([f65417a](https://github.com/transcodely/transcodely-go/commit/f65417a0c5ea977edd669d87560994d2c5861954))
+* **errors:** classify failed_precondition as PreconditionError ([af3fa51](https://github.com/transcodely/transcodely-go/commit/af3fa51a2a80357171c801d74245748a7cb401c8)), closes [#49](https://github.com/transcodely/transcodely-go/issues/49)
+* **proto:** sync protos from api 3137f067 (label pattern, insights correction docs, highlights billing) ([a8099b9](https://github.com/transcodely/transcodely-go/commit/a8099b9e07bca5dc6dca13f5458845442eae4c19))
+* **proto:** sync protos from api 3137f067 (label pattern, insights correction docs, highlights billing) ([2315737](https://github.com/transcodely/transcodely-go/commit/23157379baf3289197b80a726763f9c51b474d17))
+
 ## [0.3.18](https://github.com/transcodely/transcodely-go/compare/v0.3.17...v0.3.18) (2026-11-02)
 
 

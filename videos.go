@@ -281,6 +281,33 @@ func (v *Videos) GenerateHighlights(ctx context.Context, params *VideoGenerateHi
 	return resp.Msg.GetHighlights(), nil
 }
 
+// TranslateCaptions translates a hosted video's existing AI captions into
+// other languages without transcribing again. It creates one captions-only
+// job on the video that writes, per target language, a caption track, its
+// transcript renditions and (on HLS) a caption rendition in the manifest;
+// with IncludeInsights (default true) the ready insights in the source
+// language are translated too and appear as one more Video.Insights entry
+// per language. The result names the job, the normalized source and target
+// languages, the estimated fee, and any target already carried by an
+// earlier, still-running job (InFlight; those are not requested again).
+//
+// Billed as the captions_translation fee: EUR 0.12 per source minute per
+// language, only for languages actually delivered. Set
+// params.SourceLanguage when the video has several AI caption tracks. A
+// video without AI captions is refused with failed_precondition (code
+// captions_required); deployments without the feature refuse it with
+// parameter_unsupported.
+func (v *Videos) TranslateCaptions(ctx context.Context, params *VideoTranslateCaptionsParams) (*VideoTranslateCaptionsResult, error) {
+	if params == nil {
+		params = &VideoTranslateCaptionsParams{}
+	}
+	resp, err := v.client.TranslateCaptions(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg, nil
+}
+
 type videoWatchAdapter struct {
 	stream *connect.ServerStreamForClient[v1.WatchVideoResponse]
 }

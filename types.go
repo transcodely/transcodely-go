@@ -275,6 +275,11 @@ type (
 	HighlightsConfig = v1.HighlightsConfig
 	VideoHighlight   = v1.VideoHighlight
 
+	// TranslationInFlight is one target language a TranslateCaptions call did
+	// not request again because an earlier, still-running job already carries
+	// it (Videos.TranslateCaptions result, InFlight).
+	TranslationInFlight = v1.TranslationInFlight
+
 	WatermarkConfig         = v1.WatermarkConfig
 	WatermarkPixelPlacement = v1.WatermarkPixelPlacement
 
@@ -323,6 +328,8 @@ type (
 	VideoGenerateInsightsResult   = v1.GenerateInsightsResponse
 	VideoGenerateHighlightsParams = v1.GenerateHighlightsRequest
 	VideoGenerateHighlightsResult = v1.GenerateHighlightsResponse
+	VideoTranslateCaptionsParams  = v1.TranslateCaptionsRequest
+	VideoTranslateCaptionsResult  = v1.TranslateCaptionsResponse
 	PresetCreateParams            = v1.CreatePresetRequest
 	PresetUpdateParams            = v1.UpdatePresetRequest
 	PresetListParams              = v1.ListPresetsRequest
@@ -443,8 +450,9 @@ type (
 	OriginStatus     = v1.OriginStatus
 	R2Jurisdiction   = v1.R2Jurisdiction
 
-	VideoStatus     = v1.VideoStatus
-	VideoVisibility = v1.VideoVisibility
+	VideoStatus      = v1.VideoStatus
+	VideoVisibility  = v1.VideoVisibility
+	GuidePageSetting = v1.GuidePageSetting
 
 	MembershipStatus = v1.MembershipStatus
 	UserStatus       = v1.UserStatus
@@ -789,6 +797,19 @@ const (
 	VideoVisibilityPublic   = v1.VideoVisibility_VIDEO_VISIBILITY_PUBLIC
 	VideoVisibilityUnlisted = v1.VideoVisibility_VIDEO_VISIBILITY_UNLISTED
 	VideoVisibilityPrivate  = v1.VideoVisibility_VIDEO_VISIBILITY_PRIVATE
+)
+
+// GuidePageSetting values: a video's own guide page setting (Video.GuidePage,
+// VideoUpdateParams.GuidePage). Default follows the app's
+// HostingConfig.GuidePagesEnabled; On and Off pin it. Video.GuidePageEnabled
+// is the resulting effective value, and is absent in webhook payloads (read
+// GuidePage there, or call Videos.Get). Unspecified is never returned and is
+// rejected on update.
+const (
+	GuidePageSettingUnspecified = v1.GuidePageSetting_GUIDE_PAGE_SETTING_UNSPECIFIED
+	GuidePageSettingDefault     = v1.GuidePageSetting_GUIDE_PAGE_SETTING_DEFAULT
+	GuidePageSettingOn          = v1.GuidePageSetting_GUIDE_PAGE_SETTING_ON
+	GuidePageSettingOff         = v1.GuidePageSetting_GUIDE_PAGE_SETTING_OFF
 )
 
 // MembershipStatus values. Used to filter [MembershipListParams].Status.

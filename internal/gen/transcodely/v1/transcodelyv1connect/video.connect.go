@@ -83,6 +83,9 @@ const (
 	// VideoServiceGenerateHighlightsProcedure is the fully-qualified name of the VideoService's
 	// GenerateHighlights RPC.
 	VideoServiceGenerateHighlightsProcedure = "/transcodely.v1.VideoService/GenerateHighlights"
+	// VideoServiceTranslateCaptionsProcedure is the fully-qualified name of the VideoService's
+	// TranslateCaptions RPC.
+	VideoServiceTranslateCaptionsProcedure = "/transcodely.v1.VideoService/TranslateCaptions"
 )
 
 // VideoServiceClient is a client for the transcodely.v1.VideoService service.
@@ -185,6 +188,40 @@ type VideoServiceClient interface {
 	// off. Account refusals (spend limit, past due, suspended) are the same as
 	// CreateJob's.
 	GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error)
+	// Translate a hosted video's existing AI captions into other languages,
+	// without transcribing again. Creates one captions-only job on the video
+	// (input_video_id = the video) that reads the source track's transcript
+	// and writes, per target language: a caption track (replacing any existing
+	// auto-generated track of that language on completion), its transcript
+	// renditions and, when the video streams as HLS, a caption rendition in
+	// the manifest. With include_insights (default true) and ready insights in
+	// the source language, the insights are translated too and appear as one
+	// more Video.insights entry per language (video.insights.ready fires).
+	//
+	// Billed as the `captions_translation` fee: EUR 0.12 per source minute per
+	// language, charged only for languages actually delivered; nothing else
+	// (no captions fee, no per-job processing fee).
+	//
+	// While a translation job for this video and a target language is still
+	// running, that language is not requested again: the response lists it
+	// under in_flight with the job that carries it, and the new job (if any)
+	// covers only the other languages. Once a job is terminal, a new call
+	// translates (and bills) again and replaces the tracks.
+	//
+	// Refused with failed_precondition and code captions_required when the
+	// video has no AI captions, insights_transcript_unavailable when the
+	// source track has no transcript, and with invalid_argument
+	// (parameter_invalid) when a target equals the source language or is not a
+	// supported translation language (the violation lists the supported codes).
+	// Deployments without the feature refuse it with `parameter_unsupported`.
+	// Account refusals (spend limit, past due, suspended) are the same as
+	// CreateJob's.
+	//
+	// Privacy: the caption TEXT (never the audio or video) is sent to Anthropic,
+	// our AI subprocessor, to produce the translation; it is not used to train
+	// models. Requesting a translation also enables the AI correction pass
+	// described under SubtitleTrack.insights (same subprocessor, no charge).
+	TranslateCaptions(context.Context, *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error)
 }
 
 // NewVideoServiceClient constructs a client for the transcodely.v1.VideoService service. By
@@ -306,6 +343,12 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(videoServiceMethods.ByName("GenerateHighlights")),
 			connect.WithClientOptions(opts...),
 		),
+		translateCaptions: connect.NewClient[v1.TranslateCaptionsRequest, v1.TranslateCaptionsResponse](
+			httpClient,
+			baseURL+VideoServiceTranslateCaptionsProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("TranslateCaptions")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -329,6 +372,7 @@ type videoServiceClient struct {
 	getSeoMarkup            *connect.Client[v1.GetSeoMarkupRequest, v1.GetSeoMarkupResponse]
 	generateInsights        *connect.Client[v1.GenerateInsightsRequest, v1.GenerateInsightsResponse]
 	generateHighlights      *connect.Client[v1.GenerateHighlightsRequest, v1.GenerateHighlightsResponse]
+	translateCaptions       *connect.Client[v1.TranslateCaptionsRequest, v1.TranslateCaptionsResponse]
 }
 
 // CreateUpload calls transcodely.v1.VideoService.CreateUpload.
@@ -419,6 +463,11 @@ func (c *videoServiceClient) GenerateInsights(ctx context.Context, req *connect.
 // GenerateHighlights calls transcodely.v1.VideoService.GenerateHighlights.
 func (c *videoServiceClient) GenerateHighlights(ctx context.Context, req *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error) {
 	return c.generateHighlights.CallUnary(ctx, req)
+}
+
+// TranslateCaptions calls transcodely.v1.VideoService.TranslateCaptions.
+func (c *videoServiceClient) TranslateCaptions(ctx context.Context, req *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error) {
+	return c.translateCaptions.CallUnary(ctx, req)
 }
 
 // VideoServiceHandler is an implementation of the transcodely.v1.VideoService service.
@@ -521,6 +570,40 @@ type VideoServiceHandler interface {
 	// off. Account refusals (spend limit, past due, suspended) are the same as
 	// CreateJob's.
 	GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error)
+	// Translate a hosted video's existing AI captions into other languages,
+	// without transcribing again. Creates one captions-only job on the video
+	// (input_video_id = the video) that reads the source track's transcript
+	// and writes, per target language: a caption track (replacing any existing
+	// auto-generated track of that language on completion), its transcript
+	// renditions and, when the video streams as HLS, a caption rendition in
+	// the manifest. With include_insights (default true) and ready insights in
+	// the source language, the insights are translated too and appear as one
+	// more Video.insights entry per language (video.insights.ready fires).
+	//
+	// Billed as the `captions_translation` fee: EUR 0.12 per source minute per
+	// language, charged only for languages actually delivered; nothing else
+	// (no captions fee, no per-job processing fee).
+	//
+	// While a translation job for this video and a target language is still
+	// running, that language is not requested again: the response lists it
+	// under in_flight with the job that carries it, and the new job (if any)
+	// covers only the other languages. Once a job is terminal, a new call
+	// translates (and bills) again and replaces the tracks.
+	//
+	// Refused with failed_precondition and code captions_required when the
+	// video has no AI captions, insights_transcript_unavailable when the
+	// source track has no transcript, and with invalid_argument
+	// (parameter_invalid) when a target equals the source language or is not a
+	// supported translation language (the violation lists the supported codes).
+	// Deployments without the feature refuse it with `parameter_unsupported`.
+	// Account refusals (spend limit, past due, suspended) are the same as
+	// CreateJob's.
+	//
+	// Privacy: the caption TEXT (never the audio or video) is sent to Anthropic,
+	// our AI subprocessor, to produce the translation; it is not used to train
+	// models. Requesting a translation also enables the AI correction pass
+	// described under SubtitleTrack.insights (same subprocessor, no charge).
+	TranslateCaptions(context.Context, *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error)
 }
 
 // NewVideoServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -638,6 +721,12 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(videoServiceMethods.ByName("GenerateHighlights")),
 		connect.WithHandlerOptions(opts...),
 	)
+	videoServiceTranslateCaptionsHandler := connect.NewUnaryHandler(
+		VideoServiceTranslateCaptionsProcedure,
+		svc.TranslateCaptions,
+		connect.WithSchema(videoServiceMethods.ByName("TranslateCaptions")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.VideoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VideoServiceCreateUploadProcedure:
@@ -676,6 +765,8 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceGenerateInsightsHandler.ServeHTTP(w, r)
 		case VideoServiceGenerateHighlightsProcedure:
 			videoServiceGenerateHighlightsHandler.ServeHTTP(w, r)
+		case VideoServiceTranslateCaptionsProcedure:
+			videoServiceTranslateCaptionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -755,4 +846,8 @@ func (UnimplementedVideoServiceHandler) GenerateInsights(context.Context, *conne
 
 func (UnimplementedVideoServiceHandler) GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GenerateHighlights is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) TranslateCaptions(context.Context, *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.TranslateCaptions is not implemented"))
 }

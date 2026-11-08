@@ -312,10 +312,12 @@ func (v *Videos) TranslateCaptions(ctx context.Context, params *VideoTranslateCa
 // a new CueStyle without transcribing again: the words and their timings
 // come from the track's stored transcript, only their grouping into cues
 // changes. It creates a captions-only job on the video (JobId in the
-// result); when it completes the track's caption file, transcript
-// renditions and HLS caption rendition are replaced in place and
-// VideoTextTrack.CueStyle shows the new style. Insights are kept, and
-// translations of the track keep their old cues until translated again.
+// result). A language keeps one caption track per style
+// (VideoTextTrack.StyleVariant): when it has no track in the requested style
+// yet the job adds one next to the existing styles (AddsVariant in the
+// result), not the default unless params.MakeDefault is set; otherwise that
+// style's track is re-cut in place. Insights are kept, and translations keep
+// their old cues until translated again.
 //
 // Free: no captions, translation or processing fee. Set params.Language when
 // the video has several AI caption tracks; leave params.CueStyle unset to
@@ -332,6 +334,55 @@ func (v *Videos) RestyleCaptions(ctx context.Context, params *VideoRestyleCaptio
 		return nil, fromConnectError(err)
 	}
 	return resp.Msg, nil
+}
+
+// SetDefaultCaptionStyle makes another of a language's caption styles
+// (params.StyleVariant: compact, standard or long) its default: the style
+// players select for the language and the one labelled with the language
+// name alone (VideoTextTrack.IsDefault). The previous default stays
+// available under "<language> (<style>)". For a video that streams as HLS
+// the master playlist is rewritten and purged from the CDN. Translations of
+// the language become stale (VideoTextTrack.Stale) until translated again.
+// Free. It returns the video with its text tracks as they are now.
+//
+// Setting the current default again succeeds and changes nothing. Refused
+// with not_found when the video has no AI caption track of that language in
+// that style, with failed_precondition (code captions_job_in_flight) while a
+// captions job of the language is running, and with unavailable (code
+// translation_busy or caption_manifest_busy) when the same request can be
+// retried after a few seconds.
+func (v *Videos) SetDefaultCaptionStyle(ctx context.Context, params *VideoSetDefaultCaptionStyleParams) (*Video, error) {
+	if params == nil {
+		params = &VideoSetDefaultCaptionStyleParams{}
+	}
+	resp, err := v.client.SetDefaultCaptionStyle(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetVideo(), nil
+}
+
+// DeleteCaptionStyle removes one style (params.StyleVariant) of a language's
+// AI captions: the caption track, its entry in the video's HLS master
+// playlist (purged from the CDN) and its files. The language's default style
+// cannot be removed, which also keeps a language's only style: make another
+// style the default first with SetDefaultCaptionStyle. Free. It returns the
+// video with its text tracks as they are now.
+//
+// Refused with not_found when the video has no AI caption track of that
+// language in that style, with invalid_argument (code parameter_invalid)
+// when that track is the language's default, and with the same
+// captions_job_in_flight, translation_busy and caption_manifest_busy
+// refusals as SetDefaultCaptionStyle.
+func (v *Videos) DeleteCaptionStyle(ctx context.Context, params *VideoDeleteCaptionStyleParams) (*Video, error) {
+	if params == nil {
+		params = &VideoDeleteCaptionStyleParams{}
+	}
+	resp, err := v.client.DeleteCaptionStyle(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetVideo(), nil
 }
 
 type videoWatchAdapter struct {

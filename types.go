@@ -93,6 +93,11 @@ type (
 
 	Video          = v1.Video
 	VideoRendition = v1.VideoRendition
+	// VideoCostLine is one line of Video.CostBreakdown: how much of
+	// Video.TotalCost one kind of charge ("encoding", "processing",
+	// "captions", ...) accounts for. The lines add up to TotalCost; show an
+	// unrecognized kind as a generic line rather than dropping it.
+	VideoCostLine  = v1.VideoCostLine
 	VideoTextTrack = v1.VideoTextTrack
 	UploadPart     = v1.UploadPart
 	CompletedPart  = v1.CompletedPart
@@ -244,6 +249,14 @@ type (
 	SubtitleResult = v1.SubtitleResult
 	BurnInStyle    = v1.BurnInStyle
 
+	// CueStyle sets how AI captions are cut into cues: a CueStylePreset to
+	// start from and/or explicit limits (characters per line, lines, seconds
+	// on screen). Set it on a generate SubtitleTrack, on the inline-captions
+	// upload/from-URL params, as an app default (App.CueStyle), or re-cut
+	// existing captions with Videos.RestyleCaptions. Responses carry it
+	// resolved (VideoTextTrack.CueStyle).
+	CueStyle = v1.CueStyle
+
 	// ChapterPoint and ChapterResult carry the opt-in auto-chapters pass over
 	// generated captions (SubtitleTrack.generate_chapters). Not yet populated:
 	// auto-chapters is rolling out together with the `generate` subtitle
@@ -330,6 +343,8 @@ type (
 	VideoGenerateHighlightsResult = v1.GenerateHighlightsResponse
 	VideoTranslateCaptionsParams  = v1.TranslateCaptionsRequest
 	VideoTranslateCaptionsResult  = v1.TranslateCaptionsResponse
+	VideoRestyleCaptionsParams    = v1.RestyleCaptionsRequest
+	VideoRestyleCaptionsResult    = v1.RestyleCaptionsResponse
 	PresetCreateParams            = v1.CreatePresetRequest
 	PresetUpdateParams            = v1.UpdatePresetRequest
 	PresetListParams              = v1.ListPresetsRequest
@@ -433,6 +448,7 @@ type (
 	TranscriptFormat = v1.TranscriptFormat
 	InsightsStatus   = v1.InsightsStatus
 	InsightsSource   = v1.InsightsSource
+	CueStylePreset   = v1.CueStylePreset
 
 	VideoHighlightStatus = v1.VideoHighlightStatus
 
@@ -690,6 +706,16 @@ const (
 	InsightsSourceUnspecified = v1.InsightsSource_INSIGHTS_SOURCE_UNSPECIFIED
 	InsightsSourceJob         = v1.InsightsSource_INSIGHTS_SOURCE_JOB
 	InsightsSourceVideo       = v1.InsightsSource_INSIGHTS_SOURCE_VIDEO
+)
+
+// CueStylePreset values. Compact: one line of up to 42 characters, at most 4s
+// on screen. Standard (the default): up to two lines of 42 characters, at most
+// 7s. Long: up to two lines of 50 characters, at most 8s.
+const (
+	CueStylePresetUnspecified = v1.CueStylePreset_CUE_STYLE_PRESET_UNSPECIFIED
+	CueStylePresetCompact     = v1.CueStylePreset_CUE_STYLE_PRESET_COMPACT
+	CueStylePresetStandard    = v1.CueStylePreset_CUE_STYLE_PRESET_STANDARD
+	CueStylePresetLong        = v1.CueStylePreset_CUE_STYLE_PRESET_LONG
 )
 
 // VideoHighlightStatus values. Pending: its clip job is queued or rendering.

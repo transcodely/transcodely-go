@@ -89,6 +89,12 @@ const (
 	// VideoServiceRestyleCaptionsProcedure is the fully-qualified name of the VideoService's
 	// RestyleCaptions RPC.
 	VideoServiceRestyleCaptionsProcedure = "/transcodely.v1.VideoService/RestyleCaptions"
+	// VideoServiceSetDefaultCaptionStyleProcedure is the fully-qualified name of the VideoService's
+	// SetDefaultCaptionStyle RPC.
+	VideoServiceSetDefaultCaptionStyleProcedure = "/transcodely.v1.VideoService/SetDefaultCaptionStyle"
+	// VideoServiceDeleteCaptionStyleProcedure is the fully-qualified name of the VideoService's
+	// DeleteCaptionStyle RPC.
+	VideoServiceDeleteCaptionStyleProcedure = "/transcodely.v1.VideoService/DeleteCaptionStyle"
 )
 
 // VideoServiceClient is a client for the transcodely.v1.VideoService service.
@@ -195,8 +201,9 @@ type VideoServiceClient interface {
 	GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error)
 	// Translate a hosted video's existing AI captions into other languages,
 	// without transcribing again. Creates one captions-only job on the video
-	// (input_video_id = the video) that reads the source track's transcript
-	// and writes, per target language: a caption track (replacing any existing
+	// (input_video_id = the video) that reads the transcript of the source
+	// language's default caption style (VideoTextTrack.is_default) and
+	// writes, per target language: a caption track (replacing any existing
 	// auto-generated track of that language on completion), its transcript
 	// renditions and, when the video streams as HLS, a caption rendition in
 	// the manifest. With include_insights (default true) and ready insights in
@@ -237,19 +244,28 @@ type VideoServiceClient interface {
 	TranslateCaptions(context.Context, *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error)
 	// Re-cuts a hosted video's existing AI captions into cues of a new cue
 	// style (CueStyle), without transcribing again. The words and their
-	// timings come from the track's stored transcript; only how they are
+	// timings come from the language's stored transcript; only how they are
 	// grouped into cues changes. Creates a captions-only job on the video
 	// (job_id in the response; follow it with JobService.Get or the job.*
-	// webhooks). When the job completes, the track's caption file, its
-	// transcript renditions and, when the video's HLS stream carries the
-	// language, its stream rendition are replaced in place, the track's
-	// updated_at moves and VideoTextTrack.cue_style shows the new style.
-	// Insights are kept as they are (the words do not change).
+	// webhooks). Insights are kept as they are (the words do not change).
 	//
-	// Translations of the track are not re-cut: they keep their cues, and
-	// their source track's newer updated_at marks them as made from captions
-	// that have since changed. Translate again (TranslateCaptions) to bring
-	// them onto the new cues.
+	// A language keeps one caption track per style (VideoTextTrack.
+	// style_variant, the preset of cue_style). When the language has no track
+	// in the requested style yet, the job adds one next to the existing
+	// styles: viewers can switch between them in the player, and the new one
+	// is not the default unless make_default is set (adds_variant in the
+	// response). When it has one, that track is re-cut in place. Either way
+	// the track's caption file, its transcript renditions and, when the
+	// video's HLS stream carries the language, its stream rendition are
+	// written, its updated_at moves and its cue_style shows the new style. No
+	// other style of the language is touched. Deployments that do not offer
+	// several styles per language yet re-cut the language's default track in
+	// place instead, whatever its style, and adds_variant is false.
+	//
+	// Translations are not re-cut: they keep their cues. When the default
+	// style's cues change, its newer updated_at marks them as made from
+	// captions that have since changed. Translate again (TranslateCaptions)
+	// to bring them onto the new cues.
 	//
 	// Free: no captions, translation or processing fee is charged.
 	//
@@ -267,6 +283,38 @@ type VideoServiceClient interface {
 	// moment: nothing was created, and the same request can be retried after a
 	// few seconds. Account refusals are the same as CreateJob's.
 	RestyleCaptions(context.Context, *connect.Request[v1.RestyleCaptionsRequest]) (*connect.Response[v1.RestyleCaptionsResponse], error)
+	// Makes another of a language's caption styles its default. The default
+	// style is the one players select for the language and the one labelled
+	// with the language name alone; the previous default stays available
+	// under "<language> (<style>)". When the video streams as HLS, its master
+	// playlist is rewritten so the language's default rendition plays the new
+	// default style's captions, and the playlist is purged from the CDN.
+	// Translations of the language become stale (VideoTextTrack.stale):
+	// translate again to bring them onto the new default's cues. Free.
+	//
+	// Setting the current default again succeeds and changes nothing.
+	// Refused with not_found when the video has no AI caption track of that
+	// language in that style, and with failed_precondition and code
+	// captions_job_in_flight while a captions job (generation, translation or
+	// restyle) of the language is still running on the video; the message
+	// names that job. Refused with unavailable and code translation_busy when
+	// other caption changes on the video were being started at the same
+	// moment, and caption_manifest_busy when the video's playlist kept
+	// changing while it was being rewritten; nothing was changed, and the same
+	// request can be retried after a few seconds.
+	SetDefaultCaptionStyle(context.Context, *connect.Request[v1.SetDefaultCaptionStyleRequest]) (*connect.Response[v1.SetDefaultCaptionStyleResponse], error)
+	// Removes one style of a language's AI captions: the caption track, its
+	// entry in the video's HLS master playlist (purged from the CDN) and its
+	// files. The default style cannot be removed, which also keeps a
+	// language's only style: make another style the default first
+	// (SetDefaultCaptionStyle), or regenerate the captions. Free.
+	//
+	// Refused with not_found when the video has no AI caption track of that
+	// language in that style, with invalid_argument and code
+	// parameter_invalid when that track is the language's default, and with
+	// the same captions_job_in_flight, translation_busy and
+	// caption_manifest_busy refusals as SetDefaultCaptionStyle.
+	DeleteCaptionStyle(context.Context, *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error)
 }
 
 // NewVideoServiceClient constructs a client for the transcodely.v1.VideoService service. By
@@ -400,6 +448,18 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(videoServiceMethods.ByName("RestyleCaptions")),
 			connect.WithClientOptions(opts...),
 		),
+		setDefaultCaptionStyle: connect.NewClient[v1.SetDefaultCaptionStyleRequest, v1.SetDefaultCaptionStyleResponse](
+			httpClient,
+			baseURL+VideoServiceSetDefaultCaptionStyleProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("SetDefaultCaptionStyle")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteCaptionStyle: connect.NewClient[v1.DeleteCaptionStyleRequest, v1.DeleteCaptionStyleResponse](
+			httpClient,
+			baseURL+VideoServiceDeleteCaptionStyleProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("DeleteCaptionStyle")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -425,6 +485,8 @@ type videoServiceClient struct {
 	generateHighlights      *connect.Client[v1.GenerateHighlightsRequest, v1.GenerateHighlightsResponse]
 	translateCaptions       *connect.Client[v1.TranslateCaptionsRequest, v1.TranslateCaptionsResponse]
 	restyleCaptions         *connect.Client[v1.RestyleCaptionsRequest, v1.RestyleCaptionsResponse]
+	setDefaultCaptionStyle  *connect.Client[v1.SetDefaultCaptionStyleRequest, v1.SetDefaultCaptionStyleResponse]
+	deleteCaptionStyle      *connect.Client[v1.DeleteCaptionStyleRequest, v1.DeleteCaptionStyleResponse]
 }
 
 // CreateUpload calls transcodely.v1.VideoService.CreateUpload.
@@ -525,6 +587,16 @@ func (c *videoServiceClient) TranslateCaptions(ctx context.Context, req *connect
 // RestyleCaptions calls transcodely.v1.VideoService.RestyleCaptions.
 func (c *videoServiceClient) RestyleCaptions(ctx context.Context, req *connect.Request[v1.RestyleCaptionsRequest]) (*connect.Response[v1.RestyleCaptionsResponse], error) {
 	return c.restyleCaptions.CallUnary(ctx, req)
+}
+
+// SetDefaultCaptionStyle calls transcodely.v1.VideoService.SetDefaultCaptionStyle.
+func (c *videoServiceClient) SetDefaultCaptionStyle(ctx context.Context, req *connect.Request[v1.SetDefaultCaptionStyleRequest]) (*connect.Response[v1.SetDefaultCaptionStyleResponse], error) {
+	return c.setDefaultCaptionStyle.CallUnary(ctx, req)
+}
+
+// DeleteCaptionStyle calls transcodely.v1.VideoService.DeleteCaptionStyle.
+func (c *videoServiceClient) DeleteCaptionStyle(ctx context.Context, req *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error) {
+	return c.deleteCaptionStyle.CallUnary(ctx, req)
 }
 
 // VideoServiceHandler is an implementation of the transcodely.v1.VideoService service.
@@ -631,8 +703,9 @@ type VideoServiceHandler interface {
 	GenerateHighlights(context.Context, *connect.Request[v1.GenerateHighlightsRequest]) (*connect.Response[v1.GenerateHighlightsResponse], error)
 	// Translate a hosted video's existing AI captions into other languages,
 	// without transcribing again. Creates one captions-only job on the video
-	// (input_video_id = the video) that reads the source track's transcript
-	// and writes, per target language: a caption track (replacing any existing
+	// (input_video_id = the video) that reads the transcript of the source
+	// language's default caption style (VideoTextTrack.is_default) and
+	// writes, per target language: a caption track (replacing any existing
 	// auto-generated track of that language on completion), its transcript
 	// renditions and, when the video streams as HLS, a caption rendition in
 	// the manifest. With include_insights (default true) and ready insights in
@@ -673,19 +746,28 @@ type VideoServiceHandler interface {
 	TranslateCaptions(context.Context, *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error)
 	// Re-cuts a hosted video's existing AI captions into cues of a new cue
 	// style (CueStyle), without transcribing again. The words and their
-	// timings come from the track's stored transcript; only how they are
+	// timings come from the language's stored transcript; only how they are
 	// grouped into cues changes. Creates a captions-only job on the video
 	// (job_id in the response; follow it with JobService.Get or the job.*
-	// webhooks). When the job completes, the track's caption file, its
-	// transcript renditions and, when the video's HLS stream carries the
-	// language, its stream rendition are replaced in place, the track's
-	// updated_at moves and VideoTextTrack.cue_style shows the new style.
-	// Insights are kept as they are (the words do not change).
+	// webhooks). Insights are kept as they are (the words do not change).
 	//
-	// Translations of the track are not re-cut: they keep their cues, and
-	// their source track's newer updated_at marks them as made from captions
-	// that have since changed. Translate again (TranslateCaptions) to bring
-	// them onto the new cues.
+	// A language keeps one caption track per style (VideoTextTrack.
+	// style_variant, the preset of cue_style). When the language has no track
+	// in the requested style yet, the job adds one next to the existing
+	// styles: viewers can switch between them in the player, and the new one
+	// is not the default unless make_default is set (adds_variant in the
+	// response). When it has one, that track is re-cut in place. Either way
+	// the track's caption file, its transcript renditions and, when the
+	// video's HLS stream carries the language, its stream rendition are
+	// written, its updated_at moves and its cue_style shows the new style. No
+	// other style of the language is touched. Deployments that do not offer
+	// several styles per language yet re-cut the language's default track in
+	// place instead, whatever its style, and adds_variant is false.
+	//
+	// Translations are not re-cut: they keep their cues. When the default
+	// style's cues change, its newer updated_at marks them as made from
+	// captions that have since changed. Translate again (TranslateCaptions)
+	// to bring them onto the new cues.
 	//
 	// Free: no captions, translation or processing fee is charged.
 	//
@@ -703,6 +785,38 @@ type VideoServiceHandler interface {
 	// moment: nothing was created, and the same request can be retried after a
 	// few seconds. Account refusals are the same as CreateJob's.
 	RestyleCaptions(context.Context, *connect.Request[v1.RestyleCaptionsRequest]) (*connect.Response[v1.RestyleCaptionsResponse], error)
+	// Makes another of a language's caption styles its default. The default
+	// style is the one players select for the language and the one labelled
+	// with the language name alone; the previous default stays available
+	// under "<language> (<style>)". When the video streams as HLS, its master
+	// playlist is rewritten so the language's default rendition plays the new
+	// default style's captions, and the playlist is purged from the CDN.
+	// Translations of the language become stale (VideoTextTrack.stale):
+	// translate again to bring them onto the new default's cues. Free.
+	//
+	// Setting the current default again succeeds and changes nothing.
+	// Refused with not_found when the video has no AI caption track of that
+	// language in that style, and with failed_precondition and code
+	// captions_job_in_flight while a captions job (generation, translation or
+	// restyle) of the language is still running on the video; the message
+	// names that job. Refused with unavailable and code translation_busy when
+	// other caption changes on the video were being started at the same
+	// moment, and caption_manifest_busy when the video's playlist kept
+	// changing while it was being rewritten; nothing was changed, and the same
+	// request can be retried after a few seconds.
+	SetDefaultCaptionStyle(context.Context, *connect.Request[v1.SetDefaultCaptionStyleRequest]) (*connect.Response[v1.SetDefaultCaptionStyleResponse], error)
+	// Removes one style of a language's AI captions: the caption track, its
+	// entry in the video's HLS master playlist (purged from the CDN) and its
+	// files. The default style cannot be removed, which also keeps a
+	// language's only style: make another style the default first
+	// (SetDefaultCaptionStyle), or regenerate the captions. Free.
+	//
+	// Refused with not_found when the video has no AI caption track of that
+	// language in that style, with invalid_argument and code
+	// parameter_invalid when that track is the language's default, and with
+	// the same captions_job_in_flight, translation_busy and
+	// caption_manifest_busy refusals as SetDefaultCaptionStyle.
+	DeleteCaptionStyle(context.Context, *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error)
 }
 
 // NewVideoServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -832,6 +946,18 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(videoServiceMethods.ByName("RestyleCaptions")),
 		connect.WithHandlerOptions(opts...),
 	)
+	videoServiceSetDefaultCaptionStyleHandler := connect.NewUnaryHandler(
+		VideoServiceSetDefaultCaptionStyleProcedure,
+		svc.SetDefaultCaptionStyle,
+		connect.WithSchema(videoServiceMethods.ByName("SetDefaultCaptionStyle")),
+		connect.WithHandlerOptions(opts...),
+	)
+	videoServiceDeleteCaptionStyleHandler := connect.NewUnaryHandler(
+		VideoServiceDeleteCaptionStyleProcedure,
+		svc.DeleteCaptionStyle,
+		connect.WithSchema(videoServiceMethods.ByName("DeleteCaptionStyle")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.VideoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VideoServiceCreateUploadProcedure:
@@ -874,6 +1000,10 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceTranslateCaptionsHandler.ServeHTTP(w, r)
 		case VideoServiceRestyleCaptionsProcedure:
 			videoServiceRestyleCaptionsHandler.ServeHTTP(w, r)
+		case VideoServiceSetDefaultCaptionStyleProcedure:
+			videoServiceSetDefaultCaptionStyleHandler.ServeHTTP(w, r)
+		case VideoServiceDeleteCaptionStyleProcedure:
+			videoServiceDeleteCaptionStyleHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -961,4 +1091,12 @@ func (UnimplementedVideoServiceHandler) TranslateCaptions(context.Context, *conn
 
 func (UnimplementedVideoServiceHandler) RestyleCaptions(context.Context, *connect.Request[v1.RestyleCaptionsRequest]) (*connect.Response[v1.RestyleCaptionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.RestyleCaptions is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) SetDefaultCaptionStyle(context.Context, *connect.Request[v1.SetDefaultCaptionStyleRequest]) (*connect.Response[v1.SetDefaultCaptionStyleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.SetDefaultCaptionStyle is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) DeleteCaptionStyle(context.Context, *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.DeleteCaptionStyle is not implemented"))
 }

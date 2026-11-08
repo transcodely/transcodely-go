@@ -3760,7 +3760,13 @@ type CreateJobRequest struct {
 	// ingest source is gone). Outputs are written to the video's managed
 	// storage and linked to it. Use this OR input_url OR input_origin_id.
 	// Primarily for retro-captioning an existing hosted video with a
-	// captions-only output.
+	// captions-only output. Captions generated again for a language the video
+	// already has are cut, when the track names no cue_style, in the style of
+	// the language's default track (not the app default), and replace the
+	// default. A track that names a style and a language replaces that
+	// style's track if the language has one, else the default. The
+	// language's other styles are kept and marked stale
+	// (VideoTextTrack.stale).
 	InputVideoId *string `protobuf:"bytes,13,opt,name=input_video_id,json=inputVideoId,proto3,oneof" json:"input_video_id,omitempty"`
 	// Origin ID for outputs (origin mode).
 	// If specified, all outputs will be written to this origin.

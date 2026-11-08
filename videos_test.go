@@ -34,6 +34,14 @@ type fakeVideoClient struct {
 
 	gotTranslate *v1.TranslateCaptionsRequest
 	translate    *v1.TranslateCaptionsResponse
+
+	gotRestyle *v1.RestyleCaptionsRequest
+	restyle    *v1.RestyleCaptionsResponse
+}
+
+func (f *fakeVideoClient) RestyleCaptions(_ context.Context, req *connect.Request[v1.RestyleCaptionsRequest]) (*connect.Response[v1.RestyleCaptionsResponse], error) {
+	f.gotRestyle = req.Msg
+	return connect.NewResponse(f.restyle), nil
 }
 
 func (f *fakeVideoClient) TranslateCaptions(_ context.Context, req *connect.Request[v1.TranslateCaptionsRequest]) (*connect.Response[v1.TranslateCaptionsResponse], error) {
@@ -342,3 +350,53 @@ func TestVideos_TranslateCaptions_RequestAndResult(t *testing.T) {
 		t.Error("TranslateCaptions(nil) did not forward a request")
 	}
 }
+
+func TestVideos_RestyleCaptions_RequestAndResult(t *testing.T) {
+	compact := CueStylePresetCompact
+	fake := &fakeVideoClient{
+		restyle: &v1.RestyleCaptionsResponse{
+			JobId:    "job_a1b2c3d4e5f6",
+			VideoId:  "vid_abc",
+			Language: "eng",
+			CueStyle: &CueStyle{
+				Preset:           &compact,
+				MaxCharsPerLine:  ptrU32(42),
+				MaxLines:         ptrU32(2),
+				MaxCueDurationMs: ptrU32(4000),
+			},
+		},
+	}
+	v := newVideos(fake, fake, &config{})
+
+	res, err := v.RestyleCaptions(context.Background(), &VideoRestyleCaptionsParams{
+		Id:       "vid_abc",
+		Language: strptr("eng"),
+		CueStyle: &CueStyle{Preset: &compact, MaxLines: ptrU32(2)},
+	})
+	if err != nil {
+		t.Fatalf("RestyleCaptions() error = %v", err)
+	}
+	got := fake.gotRestyle
+	if got.GetId() != "vid_abc" || got.GetLanguage() != "eng" ||
+		got.GetCueStyle().GetPreset() != CueStylePresetCompact ||
+		got.GetCueStyle().GetMaxLines() != 2 || got.GetCueStyle().MaxCharsPerLine != nil ||
+		got.AppId != nil {
+		t.Errorf("forwarded request = %+v", got)
+	}
+	if res.GetJobId() != "job_a1b2c3d4e5f6" || res.GetVideoId() != "vid_abc" ||
+		res.GetLanguage() != "eng" || res.GetCueStyle().GetPreset() != CueStylePresetCompact ||
+		res.GetCueStyle().GetMaxCharsPerLine() != 42 || res.GetCueStyle().GetMaxLines() != 2 ||
+		res.GetCueStyle().GetMaxCueDurationMs() != 4000 {
+		t.Errorf("RestyleCaptions() = %+v, want the response verbatim", res)
+	}
+
+	fake.gotRestyle = nil
+	if _, err := v.RestyleCaptions(context.Background(), nil); err != nil {
+		t.Fatalf("RestyleCaptions(nil) error = %v", err)
+	}
+	if fake.gotRestyle == nil {
+		t.Error("RestyleCaptions(nil) did not forward a request")
+	}
+}
+
+func ptrU32(v uint32) *uint32 { return &v }

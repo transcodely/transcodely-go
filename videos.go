@@ -308,6 +308,32 @@ func (v *Videos) TranslateCaptions(ctx context.Context, params *VideoTranslateCa
 	return resp.Msg, nil
 }
 
+// RestyleCaptions re-cuts a hosted video's existing AI captions into cues of
+// a new CueStyle without transcribing again: the words and their timings
+// come from the track's stored transcript, only their grouping into cues
+// changes. It creates a captions-only job on the video (JobId in the
+// result); when it completes the track's caption file, transcript
+// renditions and HLS caption rendition are replaced in place and
+// VideoTextTrack.CueStyle shows the new style. Insights are kept, and
+// translations of the track keep their old cues until translated again.
+//
+// Free: no captions, translation or processing fee. Set params.Language when
+// the video has several AI caption tracks; leave params.CueStyle unset to
+// re-cut into the app's current default. Refused with failed_precondition
+// (code captions_required, insights_transcript_unavailable or
+// captions_job_in_flight) when there is nothing to restyle or a captions job
+// of that language is still running.
+func (v *Videos) RestyleCaptions(ctx context.Context, params *VideoRestyleCaptionsParams) (*VideoRestyleCaptionsResult, error) {
+	if params == nil {
+		params = &VideoRestyleCaptionsParams{}
+	}
+	resp, err := v.client.RestyleCaptions(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg, nil
+}
+
 type videoWatchAdapter struct {
 	stream *connect.ServerStreamForClient[v1.WatchVideoResponse]
 }

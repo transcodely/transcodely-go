@@ -4,6 +4,14 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.21](https://github.com/transcodely/transcodely-go/compare/v0.3.20...v0.3.21) (2026-11-08)
+
+
+### Features
+
+* caption style variants (SetDefaultCaptionStyle, DeleteCaptionStyle) ([f4a5726](https://github.com/transcodely/transcodely-go/commit/f4a572666313db23935d5397c79f4556df3dd17d))
+* caption style variants and Videos.SetDefaultCaptionStyle / DeleteCaptionStyle ([c4cde5d](https://github.com/transcodely/transcodely-go/commit/c4cde5d35d148020edc10ab010a7d04399426778))
+
 ## [0.3.20](https://github.com/transcodely/transcodely-go/compare/v0.3.19...v0.3.20) (2026-11-08)
 
 

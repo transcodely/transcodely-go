@@ -4,6 +4,14 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.20](https://github.com/transcodely/transcodely-go/compare/v0.3.19...v0.3.20) (2026-11-08)
+
+
+### Features
+
+* caption cue styles and RestyleCaptions ([6af765f](https://github.com/transcodely/transcodely-go/commit/6af765febbea9364d4ea3aacf89ef37ae15422c9))
+* caption cue styles and Videos.RestyleCaptions ([d56b0e2](https://github.com/transcodely/transcodely-go/commit/d56b0e25e53d3d70122e4a99ff0e4b695711e30f))
+
 ## [0.3.19](https://github.com/transcodely/transcodely-go/compare/v0.3.18...v0.3.19) (2026-11-07)
 
 

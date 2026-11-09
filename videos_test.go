@@ -42,9 +42,21 @@ type fakeVideoClient struct {
 	gotSetDefaultStyle *v1.SetDefaultCaptionStyleRequest
 	setDefaultStyle    *v1.SetDefaultCaptionStyleResponse
 
+	freeTrial    *v1.GetFreeTrialResponse
+	freeTrialErr error
+	gotFreeTrial *v1.GetFreeTrialRequest
+
 	gotDeleteStyle *v1.DeleteCaptionStyleRequest
 	deleteStyle    *v1.DeleteCaptionStyleResponse
 	deleteStyleErr error
+}
+
+func (f *fakeVideoClient) GetFreeTrial(_ context.Context, req *connect.Request[v1.GetFreeTrialRequest]) (*connect.Response[v1.GetFreeTrialResponse], error) {
+	f.gotFreeTrial = req.Msg
+	if f.freeTrialErr != nil {
+		return nil, f.freeTrialErr
+	}
+	return connect.NewResponse(f.freeTrial), nil
 }
 
 func (f *fakeVideoClient) SetDefaultCaptionStyle(_ context.Context, req *connect.Request[v1.SetDefaultCaptionStyleRequest]) (*connect.Response[v1.SetDefaultCaptionStyleResponse], error) {
@@ -534,5 +546,55 @@ func TestVideos_DeleteCaptionStyle_DefaultRefusedIsTypedError(t *testing.T) {
 	var invalid *InvalidRequestError
 	if !errors.As(err, &invalid) {
 		t.Fatalf("DeleteCaptionStyle() error = %T %v, want *InvalidRequestError", err, err)
+	}
+}
+
+func TestVideos_GetFreeTrial_ReturnsTrial(t *testing.T) {
+	reason := v1.FreeTrialUnavailableReason_FREE_TRIAL_UNAVAILABLE_REASON_DAILY_LIMIT
+	fake := &fakeVideoClient{freeTrial: &v1.GetFreeTrialResponse{FreeTrial: &v1.FreeTrial{
+		Status:             FreeTrialStatusUnavailable,
+		UnavailableReason:  &reason,
+		MaxDurationSeconds: 300,
+		MaxUploadBytes:     1 << 30,
+	}}}
+	v := newVideos(fake, fake, &config{})
+
+	got, err := v.GetFreeTrial(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("GetFreeTrial() error = %v", err)
+	}
+	if fake.gotFreeTrial == nil {
+		t.Fatal("request was not forwarded")
+	}
+	if got.GetStatus() != FreeTrialStatusUnavailable ||
+		got.GetUnavailableReason() != FreeTrialUnavailableReasonDailyLimit ||
+		got.GetMaxDurationSeconds() != 300 || got.GetMaxUploadBytes() != 1<<30 {
+		t.Errorf("GetFreeTrial() = %+v", got)
+	}
+}
+
+func TestVideos_GetFreeTrial_UsedCarriesVideoID(t *testing.T) {
+	id := "vid_abc"
+	fake := &fakeVideoClient{freeTrial: &v1.GetFreeTrialResponse{FreeTrial: &v1.FreeTrial{
+		Status:  FreeTrialStatusUsed,
+		VideoId: &id,
+	}}}
+	v := newVideos(fake, fake, &config{})
+
+	got, err := v.GetFreeTrial(context.Background(), &VideoGetFreeTrialParams{})
+	if err != nil {
+		t.Fatalf("GetFreeTrial() error = %v", err)
+	}
+	if got.GetStatus() != FreeTrialStatusUsed || got.GetVideoId() != "vid_abc" {
+		t.Errorf("GetFreeTrial() = %+v", got)
+	}
+}
+
+func TestVideos_GetFreeTrial_WrapsError(t *testing.T) {
+	fake := &fakeVideoClient{freeTrialErr: connect.NewError(connect.CodeUnauthenticated, errors.New("nope"))}
+	v := newVideos(fake, fake, &config{})
+
+	if _, err := v.GetFreeTrial(context.Background(), nil); err == nil {
+		t.Fatal("GetFreeTrial() error = nil, want error")
 	}
 }

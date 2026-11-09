@@ -385,6 +385,24 @@ func (v *Videos) DeleteCaptionStyle(ctx context.Context, params *VideoDeleteCapt
 	return resp.Msg.GetVideo(), nil
 }
 
+// GetFreeTrial returns the caller's organization's free captions trial: one
+// video with AI captions and AI insights at no charge. FreeTrial.Status is
+// "available" when the next upload or URL-ingest with the FreeTrial option
+// set will take it, "used" once a video has (FreeTrial.VideoId; a failed
+// trial video hands it back), or "unavailable" with
+// FreeTrial.UnavailableReason saying why. MaxDurationSeconds and
+// MaxUploadBytes give the trial's limits.
+func (v *Videos) GetFreeTrial(ctx context.Context, params *VideoGetFreeTrialParams) (*FreeTrial, error) {
+	if params == nil {
+		params = &VideoGetFreeTrialParams{}
+	}
+	resp, err := v.client.GetFreeTrial(ctx, connect.NewRequest(params))
+	if err != nil {
+		return nil, fromConnectError(err)
+	}
+	return resp.Msg.GetFreeTrial(), nil
+}
+
 type videoWatchAdapter struct {
 	stream *connect.ServerStreamForClient[v1.WatchVideoResponse]
 }

@@ -95,6 +95,9 @@ const (
 	// VideoServiceDeleteCaptionStyleProcedure is the fully-qualified name of the VideoService's
 	// DeleteCaptionStyle RPC.
 	VideoServiceDeleteCaptionStyleProcedure = "/transcodely.v1.VideoService/DeleteCaptionStyle"
+	// VideoServiceGetFreeTrialProcedure is the fully-qualified name of the VideoService's GetFreeTrial
+	// RPC.
+	VideoServiceGetFreeTrialProcedure = "/transcodely.v1.VideoService/GetFreeTrial"
 )
 
 // VideoServiceClient is a client for the transcodely.v1.VideoService service.
@@ -315,6 +318,15 @@ type VideoServiceClient interface {
 	// the same captions_job_in_flight, translation_busy and
 	// caption_manifest_busy refusals as SetDefaultCaptionStyle.
 	DeleteCaptionStyle(context.Context, *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error)
+	// Whether the caller's organization can still use its free trial: one
+	// video with AI captions and AI insights, up to max_duration_seconds long,
+	// at no charge. Use it to decide whether to offer the trial before an
+	// upload; the trial itself is taken by setting free_trial on CreateUpload,
+	// CreateMultipartUpload or CreateFromUrl. Read-only, free, and available to
+	// any member of the organization. API-key callers get status
+	// "unavailable" with reason "user_required": the trial is for signed-in
+	// dashboard users.
+	GetFreeTrial(context.Context, *connect.Request[v1.GetFreeTrialRequest]) (*connect.Response[v1.GetFreeTrialResponse], error)
 }
 
 // NewVideoServiceClient constructs a client for the transcodely.v1.VideoService service. By
@@ -460,6 +472,12 @@ func NewVideoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(videoServiceMethods.ByName("DeleteCaptionStyle")),
 			connect.WithClientOptions(opts...),
 		),
+		getFreeTrial: connect.NewClient[v1.GetFreeTrialRequest, v1.GetFreeTrialResponse](
+			httpClient,
+			baseURL+VideoServiceGetFreeTrialProcedure,
+			connect.WithSchema(videoServiceMethods.ByName("GetFreeTrial")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -487,6 +505,7 @@ type videoServiceClient struct {
 	restyleCaptions         *connect.Client[v1.RestyleCaptionsRequest, v1.RestyleCaptionsResponse]
 	setDefaultCaptionStyle  *connect.Client[v1.SetDefaultCaptionStyleRequest, v1.SetDefaultCaptionStyleResponse]
 	deleteCaptionStyle      *connect.Client[v1.DeleteCaptionStyleRequest, v1.DeleteCaptionStyleResponse]
+	getFreeTrial            *connect.Client[v1.GetFreeTrialRequest, v1.GetFreeTrialResponse]
 }
 
 // CreateUpload calls transcodely.v1.VideoService.CreateUpload.
@@ -597,6 +616,11 @@ func (c *videoServiceClient) SetDefaultCaptionStyle(ctx context.Context, req *co
 // DeleteCaptionStyle calls transcodely.v1.VideoService.DeleteCaptionStyle.
 func (c *videoServiceClient) DeleteCaptionStyle(ctx context.Context, req *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error) {
 	return c.deleteCaptionStyle.CallUnary(ctx, req)
+}
+
+// GetFreeTrial calls transcodely.v1.VideoService.GetFreeTrial.
+func (c *videoServiceClient) GetFreeTrial(ctx context.Context, req *connect.Request[v1.GetFreeTrialRequest]) (*connect.Response[v1.GetFreeTrialResponse], error) {
+	return c.getFreeTrial.CallUnary(ctx, req)
 }
 
 // VideoServiceHandler is an implementation of the transcodely.v1.VideoService service.
@@ -817,6 +841,15 @@ type VideoServiceHandler interface {
 	// the same captions_job_in_flight, translation_busy and
 	// caption_manifest_busy refusals as SetDefaultCaptionStyle.
 	DeleteCaptionStyle(context.Context, *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error)
+	// Whether the caller's organization can still use its free trial: one
+	// video with AI captions and AI insights, up to max_duration_seconds long,
+	// at no charge. Use it to decide whether to offer the trial before an
+	// upload; the trial itself is taken by setting free_trial on CreateUpload,
+	// CreateMultipartUpload or CreateFromUrl. Read-only, free, and available to
+	// any member of the organization. API-key callers get status
+	// "unavailable" with reason "user_required": the trial is for signed-in
+	// dashboard users.
+	GetFreeTrial(context.Context, *connect.Request[v1.GetFreeTrialRequest]) (*connect.Response[v1.GetFreeTrialResponse], error)
 }
 
 // NewVideoServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -958,6 +991,12 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(videoServiceMethods.ByName("DeleteCaptionStyle")),
 		connect.WithHandlerOptions(opts...),
 	)
+	videoServiceGetFreeTrialHandler := connect.NewUnaryHandler(
+		VideoServiceGetFreeTrialProcedure,
+		svc.GetFreeTrial,
+		connect.WithSchema(videoServiceMethods.ByName("GetFreeTrial")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/transcodely.v1.VideoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case VideoServiceCreateUploadProcedure:
@@ -1004,6 +1043,8 @@ func NewVideoServiceHandler(svc VideoServiceHandler, opts ...connect.HandlerOpti
 			videoServiceSetDefaultCaptionStyleHandler.ServeHTTP(w, r)
 		case VideoServiceDeleteCaptionStyleProcedure:
 			videoServiceDeleteCaptionStyleHandler.ServeHTTP(w, r)
+		case VideoServiceGetFreeTrialProcedure:
+			videoServiceGetFreeTrialHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1099,4 +1140,8 @@ func (UnimplementedVideoServiceHandler) SetDefaultCaptionStyle(context.Context, 
 
 func (UnimplementedVideoServiceHandler) DeleteCaptionStyle(context.Context, *connect.Request[v1.DeleteCaptionStyleRequest]) (*connect.Response[v1.DeleteCaptionStyleResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.DeleteCaptionStyle is not implemented"))
+}
+
+func (UnimplementedVideoServiceHandler) GetFreeTrial(context.Context, *connect.Request[v1.GetFreeTrialRequest]) (*connect.Response[v1.GetFreeTrialResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("transcodely.v1.VideoService.GetFreeTrial is not implemented"))
 }

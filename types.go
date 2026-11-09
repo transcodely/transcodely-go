@@ -99,10 +99,17 @@ type (
 	// unrecognized kind as a generic line rather than dropping it.
 	VideoCostLine  = v1.VideoCostLine
 	VideoTextTrack = v1.VideoTextTrack
-	UploadPart     = v1.UploadPart
-	CompletedPart  = v1.CompletedPart
-	UsageSummary   = v1.UsageSummary
-	DailyUsage     = v1.DailyUsage
+
+	// FreeTrial is an organization's free captions trial (see Videos.GetFreeTrial);
+	// FreeTrialOptions rides on the upload / URL-ingest params (FreeTrial field)
+	// and VideoFreeTrial reports on a Video how it used the trial.
+	FreeTrial        = v1.FreeTrial
+	FreeTrialOptions = v1.FreeTrialOptions
+	VideoFreeTrial   = v1.VideoFreeTrial
+	UploadPart       = v1.UploadPart
+	CompletedPart    = v1.CompletedPart
+	UsageSummary     = v1.UsageSummary
+	DailyUsage       = v1.DailyUsage
 
 	Preset        = v1.Preset
 	PresetVariant = v1.PresetVariant
@@ -349,6 +356,8 @@ type (
 	VideoSetDefaultCaptionStyleResult = v1.SetDefaultCaptionStyleResponse
 	VideoDeleteCaptionStyleParams     = v1.DeleteCaptionStyleRequest
 	VideoDeleteCaptionStyleResult     = v1.DeleteCaptionStyleResponse
+	VideoGetFreeTrialParams           = v1.GetFreeTrialRequest
+	VideoGetFreeTrialResult           = v1.GetFreeTrialResponse
 	PresetCreateParams                = v1.CreatePresetRequest
 	PresetUpdateParams                = v1.UpdatePresetRequest
 	PresetListParams                  = v1.ListPresetsRequest
@@ -710,6 +719,23 @@ const (
 	InsightsSourceUnspecified = v1.InsightsSource_INSIGHTS_SOURCE_UNSPECIFIED
 	InsightsSourceJob         = v1.InsightsSource_INSIGHTS_SOURCE_JOB
 	InsightsSourceVideo       = v1.InsightsSource_INSIGHTS_SOURCE_VIDEO
+)
+
+// FreeTrialStatus values.
+const (
+	FreeTrialStatusUnspecified = v1.FreeTrialStatus_FREE_TRIAL_STATUS_UNSPECIFIED
+	FreeTrialStatusAvailable   = v1.FreeTrialStatus_FREE_TRIAL_STATUS_AVAILABLE
+	FreeTrialStatusUsed        = v1.FreeTrialStatus_FREE_TRIAL_STATUS_USED
+	FreeTrialStatusUnavailable = v1.FreeTrialStatus_FREE_TRIAL_STATUS_UNAVAILABLE
+)
+
+// FreeTrialUnavailableReason values.
+const (
+	FreeTrialUnavailableReasonUnspecified      = v1.FreeTrialUnavailableReason_FREE_TRIAL_UNAVAILABLE_REASON_UNSPECIFIED
+	FreeTrialUnavailableReasonDisabled         = v1.FreeTrialUnavailableReason_FREE_TRIAL_UNAVAILABLE_REASON_DISABLED
+	FreeTrialUnavailableReasonEmailNotVerified = v1.FreeTrialUnavailableReason_FREE_TRIAL_UNAVAILABLE_REASON_EMAIL_NOT_VERIFIED
+	FreeTrialUnavailableReasonUserRequired     = v1.FreeTrialUnavailableReason_FREE_TRIAL_UNAVAILABLE_REASON_USER_REQUIRED
+	FreeTrialUnavailableReasonDailyLimit       = v1.FreeTrialUnavailableReason_FREE_TRIAL_UNAVAILABLE_REASON_DAILY_LIMIT
 )
 
 // CueStylePreset values. Compact: one line of up to 42 characters, at most 4s

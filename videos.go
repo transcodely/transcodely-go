@@ -291,8 +291,8 @@ func (v *Videos) GenerateHighlights(ctx context.Context, params *VideoGenerateHi
 // languages, the estimated fee, and any target already carried by an
 // earlier, still-running job (InFlight; those are not requested again).
 //
-// Billed as the captions_translation fee: EUR 0.12 per source minute per
-// language, only for languages actually delivered. Set
+// Billed as the captions_translation fee: EUR 0.02 per source minute per
+// language, at least EUR 0.05 per language, only for languages actually delivered. Set
 // params.SourceLanguage when the video has several AI caption tracks. A
 // video without AI captions is refused with failed_precondition (code
 // captions_required); deployments without the feature refuse it with

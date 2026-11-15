@@ -409,7 +409,11 @@ type VideoCostLine struct {
 	//	"processing"           — the flat per-job processing fee of each job
 	//	                         run for the video.
 	//	"captions"             — AI caption generation, inline with the
-	//	                         transcode or a later captions job.
+	//	                         transcode or a later captions job. AI captions
+	//	                         on a hosted video are included with hosting
+	//	                         for jobs created from 2026-11-15, so the line
+	//	                         is then 0; it is still listed (not omitted),
+	//	                         so the captions can be shown as included.
 	//	"captions_translation" — caption translation into other languages.
 	//	"insights"             — AI insights, both the per-minute and the
 	//	                         per-video part, whether requested with the
@@ -421,7 +425,9 @@ type VideoCostLine struct {
 	// an unrecognized kind as a generic line rather than dropping it; dropping
 	// it would make the lines stop adding up to total_cost.
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
-	// The amount in EUR, the currency of total_cost. Always greater than zero.
+	// The amount in EUR, the currency of total_cost. Greater than zero, except
+	// a "captions" line, which is 0 when the captions were included with
+	// hosting.
 	Amount        float64 `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -603,7 +609,8 @@ type Video struct {
 	//
 	// Only settled amounts count, under the same rules as total_cost: jobs
 	// without a settled total are left out, and estimated or voided fees never
-	// appear. Lines whose amount is zero are omitted. Empty exactly when
+	// appear. Lines whose amount is zero are omitted, except a "captions" line
+	// of 0 (captions included with hosting). Empty exactly when
 	// total_cost is absent.
 	//
 	// Filled on every read that fills total_cost (GetVideo and ListVideos
@@ -1405,7 +1412,7 @@ type CreateUploadRequest struct {
 	// carries insights.enabled = true; see SubtitleTrack.insights). Requires
 	// auto_captions = true; rejected otherwise with `invalid_argument`, error
 	// code `parameter_incompatible` on auto_insights. Billed as the
-	// `insights_job` (EUR 0.02 per video) and `insights` (EUR 0.005 per source
+	// `insights_job` (EUR 0.05 per video) and `insights` (EUR 0.005 per source
 	// minute) fees on the transcode job, on top of the captions fee; not
 	// charged when the insights fail. The insights surface as Video.insights.
 	// Deployments without the feature reject it with `invalid_argument`, error
@@ -1844,7 +1851,7 @@ type CreateFromUrlRequest struct {
 	// carries insights.enabled = true; see SubtitleTrack.insights). Requires
 	// auto_captions = true; rejected otherwise with `invalid_argument`, error
 	// code `parameter_incompatible` on auto_insights. Billed as the
-	// `insights_job` (EUR 0.02 per video) and `insights` (EUR 0.005 per source
+	// `insights_job` (EUR 0.05 per video) and `insights` (EUR 0.005 per source
 	// minute) fees on the transcode job, on top of the captions fee; not
 	// charged when the insights fail. The insights surface as Video.insights.
 	// Deployments without the feature reject it with `invalid_argument`, error
@@ -2569,7 +2576,7 @@ type CreateMultipartUploadRequest struct {
 	// carries insights.enabled = true; see SubtitleTrack.insights). Requires
 	// auto_captions = true; rejected otherwise with `invalid_argument`, error
 	// code `parameter_incompatible` on auto_insights. Billed as the
-	// `insights_job` (EUR 0.02 per video) and `insights` (EUR 0.005 per source
+	// `insights_job` (EUR 0.05 per video) and `insights` (EUR 0.005 per source
 	// minute) fees on the transcode job, on top of the captions fee; not
 	// charged when the insights fail. The insights surface as Video.insights.
 	// Deployments without the feature reject it with `invalid_argument`, error

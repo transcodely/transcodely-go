@@ -4,6 +4,14 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.23](https://github.com/transcodely/transcodely-go/compare/v0.3.22...v0.3.23) (2026-11-15)
+
+
+### Features
+
+* sync protos for api 5.47.0 (translation minimum, AI pricing docs) ([586386d](https://github.com/transcodely/transcodely-go/commit/586386d7ef8ccaad02e1394a531b0805f628824d))
+* sync protos for api 5.47.0 (translation minimum, AI pricing docs) ([537a5b6](https://github.com/transcodely/transcodely-go/commit/537a5b6f0252d037361bd39a41f489420cbf9f67))
+
 ## [0.3.22](https://github.com/transcodely/transcodely-go/compare/v0.3.21...v0.3.22) (2026-11-09)
 
 

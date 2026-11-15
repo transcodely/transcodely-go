@@ -3305,8 +3305,8 @@ func (x *Job) GetInsights() []*TranscriptInsights {
 // fee type, on top of the encode cost. Two families share this message, and
 // they differ in what decides whether they are billed:
 //
-//	METERED ADD-ONS (v1: "captions", AI caption generation at EUR 0.05 per
-//	source minute) pay for a service performed alongside the encode. They are
+//	METERED ADD-ONS ("captions", "captions_translation", "insights",
+//	"insights_job") pay for a service performed alongside the encode. They are
 //	metered when the input probe supplies the source duration, and billed only
 //	when the completion report shows the artifact was actually produced — no
 //	artifact, no fee. A failed or canceled job never pays one.
@@ -3330,10 +3330,20 @@ type JobFee struct {
 	// Fee discriminator:
 	//
 	//	"processing"   — the flat per-job processing fee (see Job.fees).
-	//	"captions"     — AI caption generation (transcript renditions included).
+	//	"captions"     — AI caption generation (transcript renditions
+	//	                 included): EUR 0.01 per source minute, or EUR 0 when
+	//	                 the job belongs to a video hosted with Transcodely
+	//	                 (described "AI Caption Generation (included with
+	//	                 hosting)"; the line is still listed, at 0).
+	//	"captions_translation" — caption translation: EUR 0.02 per source
+	//	                 minute per delivered language, at least
+	//	                 minimum_per_language (EUR 0.05) per language.
 	//	"insights"     — AI insights, the per-source-minute part (EUR 0.005/min).
-	//	"insights_job" — AI insights, the per-video part (EUR 0.02).
+	//	"insights_job" — AI insights, the per-video part (EUR 0.05).
 	//
+	// Prices are list prices for jobs created from 2026-11-15 (earlier jobs
+	// keep the rates they were quoted: captions 0.05, translation 0.12,
+	// insights_job 0.02); an app on custom pricing sees its own rates.
 	// The two insights fees stay estimated until the insights are ready (after
 	// the job completes), then are confirmed together, or voided together when
 	// the insights fail.
@@ -3343,8 +3353,11 @@ type JobFee struct {
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// Metering unit:
 	//
-	//	"job"           — a flat per-job charge; quantity is always 1.
-	//	"source_minute" — input duration in minutes.
+	//	"job"             — a flat per-job charge; quantity is always 1.
+	//	"source_minute"   — input duration in minutes.
+	//	"language_minute" — input duration in minutes times the number of
+	//	                    languages (requested until the job completes,
+	//	                    delivered after).
 	Unit string `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"`
 	// Metered quantity in `unit`s — the exact fraction, e.g. a 90-second
 	// source is 1.5 source minutes. For a "source_minute" fee this is 0 until
@@ -3354,17 +3367,24 @@ type JobFee struct {
 	// processing fee this is the job's size class's rate at the moment the job
 	// was created; later rate changes never re-price an existing job.
 	Rate float64 `protobuf:"fixed64,5,opt,name=rate,proto3" json:"rate,omitempty"`
-	// quantity x rate, in `currency`. For a "source_minute" fee this is 0 until
-	// the input probe completes; for a "job" fee it equals rate from creation.
+	// quantity x rate, in `currency`, raised to minimum_per_language x
+	// languages when that is larger. For a "source_minute" or
+	// "language_minute" fee this is 0 until the input probe completes; for a
+	// "job" fee it equals rate from creation.
 	Amount float64 `protobuf:"fixed64,6,opt,name=amount,proto3" json:"amount,omitempty"`
 	// Currency for rate/amount (ISO 4217 code, e.g., "EUR"). Matches the
 	// job-level currency field.
 	Currency string `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
 	// Fee id ("fee_..."). This is what a cost-breakdown fee line's
 	// `reference_id` points at (see JobCostBreakdown).
-	Id            string `protobuf:"bytes,8,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Id string `protobuf:"bytes,8,opt,name=id,proto3" json:"id,omitempty"`
+	// The least this fee bills per language, in `currency`, locked at job
+	// creation: amount = max(quantity x rate, minimum_per_language x
+	// languages). Set only on a "captions_translation" fee quoted from
+	// 2026-11-15 (EUR 0.05 at list price); absent on every other fee.
+	MinimumPerLanguage *float64 `protobuf:"fixed64,9,opt,name=minimum_per_language,json=minimumPerLanguage,proto3,oneof" json:"minimum_per_language,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *JobFee) Reset() {
@@ -3451,6 +3471,13 @@ func (x *JobFee) GetId() string {
 		return x.Id
 	}
 	return ""
+}
+
+func (x *JobFee) GetMinimumPerLanguage() float64 {
+	if x != nil && x.MinimumPerLanguage != nil {
+		return *x.MinimumPerLanguage
+	}
+	return 0
 }
 
 // One line of a job's cost breakdown (see JobCostBreakdown).
@@ -5480,7 +5507,7 @@ var file_transcodely_v1_job_proto_rawDesc = string([]byte{
 	0x6c, 0x61, 0x74, 0x65, 0x42, 0x15, 0x0a, 0x13, 0x5f, 0x6d, 0x69, 0x6e, 0x69, 0x6d, 0x75, 0x6d,
 	0x5f, 0x63, 0x68, 0x61, 0x72, 0x67, 0x65, 0x5f, 0x65, 0x75, 0x72, 0x42, 0x07, 0x0a, 0x05, 0x5f,
 	0x63, 0x6c, 0x69, 0x70, 0x42, 0x0b, 0x0a, 0x09, 0x5f, 0x76, 0x69, 0x64, 0x65, 0x6f, 0x5f, 0x69,
-	0x64, 0x22, 0xcd, 0x01, 0x0a, 0x06, 0x4a, 0x6f, 0x62, 0x46, 0x65, 0x65, 0x12, 0x19, 0x0a, 0x08,
+	0x64, 0x22, 0x9d, 0x02, 0x0a, 0x06, 0x4a, 0x6f, 0x62, 0x46, 0x65, 0x65, 0x12, 0x19, 0x0a, 0x08,
 	0x66, 0x65, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07,
 	0x66, 0x65, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72,
 	0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65,
@@ -5493,7 +5520,12 @@ var file_transcodely_v1_job_proto_rawDesc = string([]byte{
 	0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x63,
 	0x79, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x63,
 	0x79, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x69,
-	0x64, 0x22, 0x9e, 0x02, 0x0a, 0x0b, 0x4a, 0x6f, 0x62, 0x43, 0x6f, 0x73, 0x74, 0x4c, 0x69, 0x6e,
+	0x64, 0x12, 0x35, 0x0a, 0x14, 0x6d, 0x69, 0x6e, 0x69, 0x6d, 0x75, 0x6d, 0x5f, 0x70, 0x65, 0x72,
+	0x5f, 0x6c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x01, 0x48,
+	0x00, 0x52, 0x12, 0x6d, 0x69, 0x6e, 0x69, 0x6d, 0x75, 0x6d, 0x50, 0x65, 0x72, 0x4c, 0x61, 0x6e,
+	0x67, 0x75, 0x61, 0x67, 0x65, 0x88, 0x01, 0x01, 0x42, 0x17, 0x0a, 0x15, 0x5f, 0x6d, 0x69, 0x6e,
+	0x69, 0x6d, 0x75, 0x6d, 0x5f, 0x70, 0x65, 0x72, 0x5f, 0x6c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67,
+	0x65, 0x22, 0x9e, 0x02, 0x0a, 0x0b, 0x4a, 0x6f, 0x62, 0x43, 0x6f, 0x73, 0x74, 0x4c, 0x69, 0x6e,
 	0x65, 0x12, 0x33, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32,
 	0x1f, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x63, 0x6f, 0x64, 0x65, 0x6c, 0x79, 0x2e, 0x76, 0x31,
 	0x2e, 0x4a, 0x6f, 0x62, 0x43, 0x6f, 0x73, 0x74, 0x4c, 0x69, 0x6e, 0x65, 0x54, 0x79, 0x70, 0x65,
@@ -6120,6 +6152,7 @@ func file_transcodely_v1_job_proto_init() {
 	file_transcodely_v1_job_proto_msgTypes[17].OneofWrappers = []any{}
 	file_transcodely_v1_job_proto_msgTypes[18].OneofWrappers = []any{}
 	file_transcodely_v1_job_proto_msgTypes[19].OneofWrappers = []any{}
+	file_transcodely_v1_job_proto_msgTypes[20].OneofWrappers = []any{}
 	file_transcodely_v1_job_proto_msgTypes[21].OneofWrappers = []any{}
 	file_transcodely_v1_job_proto_msgTypes[22].OneofWrappers = []any{}
 	file_transcodely_v1_job_proto_msgTypes[24].OneofWrappers = []any{}

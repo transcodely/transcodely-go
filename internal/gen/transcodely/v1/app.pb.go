@@ -1808,8 +1808,9 @@ type PricingEntry struct {
 	// Human label of the class, e.g. "Encoding".
 	GroupLabel string `protobuf:"bytes,4,opt,name=group_label,json=groupLabel,proto3" json:"group_label,omitempty"`
 	// What base_price is per: eur_per_output_minute, eur_per_source_minute,
-	// eur_per_video, eur_per_job, eur_per_gb_month, eur_per_gb, or eur_per_unit
-	// for a charge whose unit is not known yet. Empty for a charge that has only
+	// eur_per_language_minute, eur_per_video, eur_per_video_language,
+	// eur_per_job, eur_per_gb_month, eur_per_gb, or eur_per_unit for a charge
+	// whose unit is not known yet. Empty for a charge that has only
 	// a multiplier.
 	Unit string `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
 	// The price per unit, in EUR, this app pays. Absent for a charge that has

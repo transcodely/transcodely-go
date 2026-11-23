@@ -109,10 +109,15 @@ const (
 	// line carries the difference so the breakdown always matches the total.
 	InvoiceLineType_INVOICE_LINE_TYPE_ADJUSTMENT InvoiceLineType = 4
 	// Metered hosting: managed storage (GB, averaged over the covered days) and
-	// CDN delivery (GB egressed), one line per app and service. dimensions
-	// carries {"app_id", "service": "storage"|"egress", "covered_from",
-	// "covered_through"} — the coverage window rolls with the meter, so the last
-	// day or so of a period appears on the next statement rather than this one.
+	// CDN delivery (GB egressed), where 1 GB = 2^30 bytes (1 GiB) for both the
+	// quantity and the per-GB price; one line per app and service — and, for
+	// delivery, per delivery region. dimensions carries {"app_id", "service":
+	// "storage"|"egress", "covered_from", "covered_through"}, plus "region" (a
+	// delivery region, see HostingConfig.delivery_regions) on a delivery line
+	// priced per region; a delivery line without "region" covers delivery
+	// metered before regional pricing, at the former single rate. The coverage
+	// window rolls with the meter, so the last day or so of a period appears on
+	// the next statement rather than this one.
 	InvoiceLineType_INVOICE_LINE_TYPE_HOSTING InvoiceLineType = 5
 )
 

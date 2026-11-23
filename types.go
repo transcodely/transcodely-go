@@ -111,6 +111,11 @@ type (
 	UsageSummary     = v1.UsageSummary
 	DailyUsage       = v1.DailyUsage
 
+	// RegionEgressUsage is one delivery region's share of a UsageSummary's
+	// egress; RegionEgressBytes is the same per day on a DailyUsage.
+	RegionEgressUsage = v1.RegionEgressUsage
+	RegionEgressBytes = v1.RegionEgressBytes
+
 	Preset        = v1.Preset
 	PresetVariant = v1.PresetVariant
 	VideoSettings = v1.VideoSettings

@@ -4,6 +4,13 @@ All notable changes to the Transcodely Go SDK will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Breaking changes are allowed on minor bumps until v1.0.0.
 
+## [0.3.24](https://github.com/transcodely/transcodely-go/compare/v0.3.23...v0.3.24) (2026-11-23)
+
+
+### Features
+
+* delivery regions on hosting config and per-region delivery usage ([#86](https://github.com/transcodely/transcodely-go/issues/86)) ([ff09386](https://github.com/transcodely/transcodely-go/commit/ff09386f43c4fd11ce2645415ba7ebb6e462d935))
+
 ## [0.3.23](https://github.com/transcodely/transcodely-go/compare/v0.3.22...v0.3.23) (2026-11-15)
 
 
